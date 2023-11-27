@@ -66,6 +66,3 @@ The function does not validate whether the .ps1 files contain valid PowerShell f
 It solely relies on the naming convention.
 
 ## RELATED LINKS
-
-[Update-ModuleManifest]()
-

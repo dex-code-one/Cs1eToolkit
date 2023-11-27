@@ -139,11 +139,6 @@ Update-FunctionsToExport -ModuleFolderPath $moduleFolderPath -Verbose</dev:code>
         </dev:remarks>
       </command:example>
     </command:examples>
-    <command:relatedLinks>
-      <maml:navigationLink>
-        <maml:linkText>Update-ModuleManifest</maml:linkText>
-        <maml:uri></maml:uri>
-      </maml:navigationLink>
-    </command:relatedLinks>
+    <command:relatedLinks />
   </command:command>
 </helpItems>
