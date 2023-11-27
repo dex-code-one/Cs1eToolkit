@@ -1,0 +1,149 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<helpItems schema="maml" xmlns="http://msh">
+  <command:command xmlns:maml="http://schemas.microsoft.com/maml/2004/10" xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10" xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10" xmlns:MSHelp="http://msdn.microsoft.com/mshelp">
+    <command:details>
+      <command:name>New-1EVersion</command:name>
+      <command:verb>New</command:verb>
+      <command:noun>1EVersion</command:noun>
+      <maml:description>
+        <maml:para>Generates a version number based on the current date and time.</maml:para>
+      </maml:description>
+    </command:details>
+    <maml:description>
+      <maml:para>The New-Version function creates a version number using the current date and time. The format of the version number is A.B.C.D, where: - A represents the year and month in the format YYYYMM.</maml:para>
+      <maml:para>- B represents the day and hour in the format DDHH.</maml:para>
+      <maml:para>- C represents the minute and second in the format MMSS.</maml:para>
+      <maml:para>- D is a constant segment, set to 1.</maml:para>
+      <maml:para></maml:para>
+      <maml:para>This versioning system ensures that each version number is unique and sequentially  meaningful, based on the exact time of generation.</maml:para>
+      <maml:para>This function does not accept any parameters.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>New-1EVersion</maml:name>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters />
+    <command:inputTypes />
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>System.Version</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para></maml:para>
+        </maml:description>
+      </command:returnValue>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>The output is a System.Version object, which represents the generated version number.</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para></maml:para>
+        </maml:description>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para>Author: john.nelson@1e.com Version: 1.0 Date: 2023-11-26</maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>-------------------------- EXAMPLE 1 --------------------------</maml:title>
+        <dev:code>New-Version
+This example generates a version number based on the current date and time.</dev:code>
+        <dev:remarks>
+          <maml:para></maml:para>
+        </dev:remarks>
+      </command:example>
+    </command:examples>
+    <command:relatedLinks />
+  </command:command>
+  <command:command xmlns:maml="http://schemas.microsoft.com/maml/2004/10" xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10" xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10" xmlns:MSHelp="http://msdn.microsoft.com/mshelp">
+    <command:details>
+      <command:name>Update-1EFunctionsToExport</command:name>
+      <command:verb>Update</command:verb>
+      <command:noun>1EFunctionsToExport</command:noun>
+      <maml:description>
+        <maml:para>Updates the module manifest to export functions based on filenames in a specified directory.</maml:para>
+      </maml:description>
+    </command:details>
+    <maml:description>
+      <maml:para>The Update-FunctionsToExport function updates a PowerShell module manifest file to include all functions to export. It assumes that each .ps1 file in the specified Public directory of the module corresponds to a function, and the filename (without extension) is the function name. This function extracts all such filenames, treats them as function names, and updates the module manifest accordingly.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>Update-1EFunctionsToExport</maml:name>
+        <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="False" position="1" aliases="none">
+          <maml:name>ModuleFolderPath</maml:name>
+          <maml:description>
+            <maml:para>The path to the module folder. This folder should contain a Public subfolder with .ps1 files representing functions.</maml:para>
+          </maml:description>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+          <dev:type>
+            <maml:name>String</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>None</dev:defaultValue>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="False" position="1" aliases="none">
+        <maml:name>ModuleFolderPath</maml:name>
+        <maml:description>
+          <maml:para>The path to the module folder. This folder should contain a Public subfolder with .ps1 files representing functions.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type>
+          <maml:name>String</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType>
+        <dev:type>
+          <maml:name>None. You cannot pipe objects to Update-FunctionsToExport.</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para></maml:para>
+        </maml:description>
+      </command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>None. This function does not generate any output.</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para></maml:para>
+        </maml:description>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para>This function assumes that the filenames in the Public subfolder match exactly with the intended function names and are unique. It is designed to work with a specific module structure where the Public subfolder contains the .ps1 files representing the functions to be exported.</maml:para>
+        <maml:para>The function does not validate whether the .ps1 files contain valid PowerShell functions. It solely relies on the naming convention.</maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>-------------------------- EXAMPLE 1 --------------------------</maml:title>
+        <dev:code>$moduleFolderPath = Join-Path $env:OneDriveCommercial "Code\Powershell\Cs1eToolkit"
+Update-FunctionsToExport -ModuleFolderPath $moduleFolderPath -Verbose</dev:code>
+        <dev:remarks>
+          <maml:para>Updates the module manifest in the specified folder by scanning the Public subfolder for .ps1 files and using their filenames as function names to export.</maml:para>
+        </dev:remarks>
+      </command:example>
+    </command:examples>
+    <command:relatedLinks>
+      <maml:navigationLink>
+        <maml:linkText>Update-ModuleManifest</maml:linkText>
+        <maml:uri></maml:uri>
+      </maml:navigationLink>
+    </command:relatedLinks>
+  </command:command>
+</helpItems>
