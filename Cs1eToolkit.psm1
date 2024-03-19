@@ -22,352 +22,708 @@ $US = [char]0x241F  # Unit Separator symbol
 
 #region Classes
 
-class CsLog : System.IDisposable {
-    [string] $LogFilePath
-    [System.IO.StreamWriter] $LogWriter
-    [int64] $MaxSize = 10MB  # Default max log size
-    [int] $MaxRollovers = 5  # Default max number of rollover logs
-    [System.Collections.Hashtable]$ValidLevels # Valid log levels
-
-    # Private members
-    hidden [TimeZoneInfo] $localTimeZone = [TimeZoneInfo]::Local
-    hidden [System.Collections.Hashtable] $abbreviationMap
-
-    CsLog() {
-        $defaultLogFileName = $MyInvocation.MyCommand.Name -replace '\.ps1$', ''
-        if (-not $defaultLogFileName) {
-            $defaultLogFileName = (Get-Date -Format "yyyy.MM.dd.HH.mm.ss.fffffff")
-        }
-        $this.LogFilePath = "$env:ProgramData\1E\CsLogs\$($defaultLogFileName).log"
-        $this.InitializeLog()
-    }
-
-    CsLog([string] $FilePath) {
-        if (-not [System.IO.Path]::IsPathRooted($FilePath)) {
-            $FilePath = "$env:ProgramData\1E\CsLogs\$FilePath"
-        }
-
-        if (-not $FilePath.EndsWith(".log")) {
-            $FilePath += ".log"
-        }
-
-        $this.LogFilePath = $FilePath
-        $this.InitializeLog()
-    }
-
-    [void] InitializeLog() {
-        # Initialize the local time zone
-        $this.abbreviationMap = @{
-            $true = $this.localTimeZone.DaylightName
-            $false = $this.localTimeZone.StandardName
-        }
-
-        # Initialize the valid log levels
-        $this.ValidLevels = @{
-            "VERBOSE" = $true
-            "INFO" = $true
-            "WARN" = $true
-            "ERROR" = $true
-        }        
-
-        $logDirectory = [System.IO.Path]::GetDirectoryName($this.LogFilePath)
-        if (-not [System.IO.Directory]::Exists($logDirectory)) {
-            [System.IO.Directory]::CreateDirectory($logDirectory)
-        }
-    
-        $fileStream = [System.IO.File]::Open(
-            $this.LogFilePath, 
-            [System.IO.FileMode]::OpenOrCreate, # Open the file or create if it doesn't exist
-            [System.IO.FileAccess]::ReadWrite,  # Allow reading and writing
-            [System.IO.FileShare]::ReadWrite)   # Allow other processes to read/write
-    
-        $fileStream.Seek(0, [System.IO.SeekOrigin]::End) # Seek to the end of the file
-    
-        $this.LogWriter = New-Object System.IO.StreamWriter $fileStream
-        $this.LogWriter.AutoFlush = $true # Flush the buffer after every write
-
-        # If this is an empty rollover or new log, Write the log header
-        if ($this.GetLogSize() -eq 0) {
-            Write-Verbose 'Initializing new log. Writing log header.'
-            $this.WriteLogHeader()
-        }
-    }    
-    
-    [void] WriteVerbose([string] $Message) {
-        $this.Write($Message, "VERBOSE",$null)
-    }
-
-    [void] WriteInfo([string] $Message) {
-        $this.Write($Message, "INFO",$null)
-    }
-
-    [void] WriteWarning([string] $Message) {
-        $this.Write($Message, "WARN",$null)
-    }
-
-    [void] WriteError([string] $Message) {
-        $this.Write($Message, "ERROR",$null)
-    }
-
-    # Overload for writing a message with level and context
-    [void] Write([string] $Message, [string] $Level = 'INFO', [string] $Context = ' ') {
-        # Check to see if adding this message will cause the log to rollover, rollover if necessary
-        $this.RotateLog([System.Text.Encoding]::UTF8.GetByteCount($Message))
-
-        # Validate a valid log level was specified
-        if (-not $this.validLevels[$Level]) {$Level = 'INFO'}
-
-        # Handle null or empty context
-        if ([string]::IsNullOrWhiteSpace($Context)) {$Context = ' '}
-
-        # Write the message to the log file
-        $now = [DateTime]::UtcNow
-        $localTime = $now.ToLocalTime()
-
-        # Use hashtable to determine abbreviation without explicit if/else
-        $abbreviation = $this.abbreviationMap[$this.localTimeZone.IsDaylightSavingTime($localTime)]
-
-        $logEntry = "[{0:yyyy-MM-dd HH:mm:ss.fffffff}][{1:yyyy-MM-dd HH:mm:ss.fffffff} {2}] [$Level] [$Context] $Message" -f $now, $localTime, $abbreviation
-        $this.LogWriter.WriteLine($logEntry)
-    }
-
-    # Overload for writing a message with a level
-    [void] Write([string] $Message, [string] $Level) {
-        $this.Write($Message, $Level, $null)
-    }
-    
-    # Overload for writing a message with default level and context
-    [void] Write([string] $Message) {
-        $this.Write($Message, $null, $null)
-    }    
-
-    # Close the log file and dispose of the StreamWriter object
-    [void] Close() {
-        $this.Dispose()
-    }
-
-    # Close the log file and dispose of the StreamWriter object
-    [void] Dispose() {
-        if ($this.LogWriter) {
-            try {
-                $this.LogWriter.Close()
-            } finally {
-                $this.LogWriter.Dispose()
+    #----------------------------------------------------------------
+    #region CsLog Class
+    #----------------------------------------------------------------
+    class CsLog {
+        #================================================================================================================================
+        #region Public Properties
+            [System.IO.FileInfo] $LogFile
+            [int32] $LogMaxBytes = 10MB
+            [int32] $LogMaxRollovers = 5
+            [System.IO.FileInfo[]] $RolloverLogs
+            [int32] $TailLines = 40
+            [ordered] $LoggingContext
+            [System.DateTimeOffset] $InstantiatedTime = [System.DateTimeOffset]::Now
+            [bool] $EchoMessages = $true
+            [hashtable] $LevelColors = @{
+                'Debug' = 'DarkGray'
+                'Info' = 'Green'
+                'Warn' = 'Yellow'
+                'Error' = 'Red'
+                'Fatal' = 'Magenta'
             }
-            $this.LogWriter = $null
-        }
-    }
+        #endregion
+        #================================================================================================================================
+        
+        #================================================================================================================================
+        #region Private Properties
+            hidden [string] $defaultExtension = '.log'
+            hidden [string] $defaultPrefix = 'CsLog_'
+            hidden [string] $defaultNamePattern = 'yyyyMMdd_HHmmss'
+            hidden [string] $defaultDirectory = [System.IO.Path]::Combine($env:ProgramData, '1E\CsLogs')
+            hidden [string] $FS = "`u{200B}`t " # Field Separator
+            hidden [string] $RS = "`u{200B}`n" # Record Separator
+            hidden [System.Text.Encoding] $encoding = [System.Text.Encoding]::Unicode
+            hidden [string] $encodingName = 'Unicode'
+            hidden [string] $fallbackDirectory = $env:TEMP
+            hidden [System.Management.Automation.Host.PSHost] $host = $Host
+            hidden [System.Collections.Hashtable] $psVersionTable = $PSVersionTable
+            hidden [string] $PSScriptRoot = $PSScriptRoot
+            hidden [string] $PSCommandPath = $PSCommandPath
+            hidden [object] $os
+            hidden [string] $deviceIp
+            hidden [string] $userSid
+            hidden [int32] $sessionId
+            hidden [int32] $processId
+            hidden [ordered] $context
+            hidden [string] $contextHash
+            hidden [System.Security.Cryptography.MD5] $hasherMD5 = [System.Security.Cryptography.MD5]::Create()
+            hidden [System.Security.Cryptography.SHA1] $hasherSHA1 = [System.Security.Cryptography.SHA1]::Create()
+            hidden [System.Security.Cryptography.SHA256] $hasherSHA256 = [System.Security.Cryptography.SHA256]::Create()
+            hidden [System.Security.Cryptography.SHA512] $hasherSHA512 = [System.Security.Cryptography.SHA512]::Create()
+        #endregion
+        #================================================================================================================================
 
-    # Method to return the size of the log file
-    [int64] GetLogSize() {if ([System.IO.File]::Exists($this.LogFilePath)) {return [System.IO.FileInfo]::new($this.LogFilePath).Length} else {return 0}}
+        #================================================================================================================================
+        #region Constructors
+            CsLog() {
+                # Create a new log file with a default name
+                $this.LogFile = $this.StringToFileInfo($null)
+                $this.Initialize()
+            }
 
-    # NewSeparator method adapted from New-Separator function
-    [string] NewSeparator([string] $Type = 'Double', [int] $Length = 100, [string] $Name) {
-        $separatorChars = @{
-            'Single' = '─'
-            'Double' = '═'
-            'Thick'  = '█'
-            'SingleTop' = @('┌', '─', '┐')
-            'SingleBottom' = @('└', '─', '┘')
-            'DoubleTop' = @('╔', '═', '╗')
-            'DoubleBottom' = @('╚', '═', '╝')
-            'ThickTop' = @('█', '▀', '█')
-            'ThickBottom' = @('█', '▄', '█')
-        }
+            CsLog([string] $Path) {
+                $this.LogFile = $this.StringToFileInfo($Path)
+                $this.Initialize()
+            }
+            
+            hidden [void] Initialize() {
+                # Set default values
+                
+                # Get the OS details
+                try{$this.os = Get-CimInstance Win32_OperatingSystem -Verbose:$false | Select-Object -Property Caption, Version, OSArchitecture, SystemDirectory, WindowsDirectory} catch{$this.os = @{Caption='';Version='';OSArchitecture='';SystemDirectory='';WindowsDirectory=''}}
 
-        if ($Type -in @('SingleTop', 'SingleBottom', 'DoubleTop', 'DoubleBottom', 'ThickTop', 'ThickBottom')) {
-            $leftChar = $separatorChars[$Type][0]
-            $middleChar = $separatorChars[$Type][1]
-            $rightChar = $separatorChars[$Type][2]
-            if ([string]::IsNullOrEmpty($Name)) {
-                $middleChar = $middleChar * ($Length - 2)
-                return $leftChar + $middleChar + $rightChar
-            } else {
-                $name = $name.ToUpper()
-                $adjustedLength = $length - 2 - $name.Length
-                if ($adjustedLength -lt 0) {
-                    throw "Length is too short to include the name"
+                # Get device IP
+                try {$this.deviceIp = Get-NetIPAddress -AddressFamily IPv4 -Type Unicast | Where-Object {$_.InterfaceAlias -notlike '*Loopback*' -and $_.PrefixOrigin -ne 'WellKnown'} | Sort-Object -Property InterfaceMetric -Descending | Select-Object -First 1 -ExpandProperty IPAddress} catch {$this.deviceIp = ''}
+
+                # Get user SID
+                try {$this.userSid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value} catch {$this.userSid = ''}
+
+                # Get session ID
+                try {$this.sessionId = [System.Diagnostics.Process]::GetCurrentProcess().SessionId} catch {$this.sessionId = $null}
+
+                # Get process ID
+                try {$this.processId = [System.Diagnostics.Process]::GetCurrentProcess().Id} catch {$this.processId = $null}
+
+                # Get the list of RollOver files
+                $this.RolloverLogs = Get-ChildItem -Path $this.LogFile.Directory -Filter "$($this.LogFile.BaseName).*$($this.LogFile.Extension)" -File |
+                    Sort-Object -Property Name -Descending
+
+                # Synchronize the context
+                if ($this.SyncContext()) {
+                    # If the context has changed or is new, write the context to the log
+                    $this.Write("`n$($this.GetSingleLine())`n$($this.HashtableToString($this.context))`n$($this.GetSingleLine())", 'Info')
                 }
-                $middle = $middleChar * 2 + $name + $middleChar * ($adjustedLength - 1)
-                return $leftChar + $middle + $rightChar
+                
             }
-        } else {
-            return $separatorChars[$Type] * $Length
-        }
-    }
+        #endregion
+        #================================================================================================================================
 
-    # Method to try moving a file with retries (useful for log rotation)
-    [void] TryMoveFile($source, $destination) {
-        $maxRetries = 5
-        $delay = 500 # milliseconds
+        #================================================================================================================================
+        #region Public Methods 
 
-        for ($i = 0; $i -lt $maxRetries; $i++) {
-            try {
-                [System.IO.File]::Move($source, $destination)
-                break
-            } catch {
-                Start-Sleep -Milliseconds $delay
-            }
-        }
-    }
+            #----------------------------------------------------------------
+            #region Clear
+            #----------------------------------------------------------------
+            # Clears the log file and removes all rollover logs
+            [void] Clear() {
+                # Clear the current log file
+                Set-Content -Path $this.LogFile.FullName -Value '' -Force -Encoding $this.encodingName
 
-    # Method to try deleting a file with retries (useful for log rotation)
-    [void] TryDeleteFile($file) {
-        $maxRetries = 5
-        $delay = 500 # milliseconds
+                # Clear the rollover logs
+                foreach ($log in $this.RolloverLogs) {
+                    $log.Delete()
+                }
 
-        for ($i = 0; $i -lt $maxRetries; $i++) {
-            try {
-                [System.IO.File]::Delete($file)
-                break
-            } catch {
-                Start-Sleep -Milliseconds $delay
-            }
-        }
-    }
+                # Clear the context hash so the context will always be written to the new log
+                $this.contextHash = $null
 
-    # Method to write the log header on new/rollover logs
-    hidden [void] WriteLogHeader() {    
-        # Format Output
-        $output = @"
-$($this.NewSeparator('DoubleTop',32,$null))
-  NEW LOG: $([System.IO.FileInfo]::new($this.LogFilePath).CreationTime)
-$($this.NewSeparator('Double',32,$null))
-$($this.NewSeparator('DoubleTop',80,'System Information'))
-$($this.NewSeparator('DoubleBottom',80,'System Information'))
-"@
-        $this.LogWriter.WriteLine($output)
-    }        
-
-    
-    # Method to check the log size and rotate if necessary
-    [void] RotateLog([int32]$AddedBytes = 0) {
-        $logSize = [System.IO.FileInfo]::new($this.LogFilePath).Length + $AddedBytes
-
-        if ($logSize -gt $this.maxSize) {
-            # Close and dispose the current StreamWriter
-            if ($this.LogWriter) {
-                $this.LogWriter.Close()
-                $this.LogWriter.Dispose()
-                $this.LogWriter = $null # Clear the object
-            }
-
-            # Rotate the log files
-            for ($i = $this.maxRollovers - 1; $i -gt 0; $i--) {
-                $oldLog = "$($this.LogFilePath).$i"
-                $newLog = "$($this.LogFilePath).$($i + 1)"
-                if ([System.IO.File]::Exists($oldLog)) {
-                    $this.TryMoveFile($oldLog, $newLog)
+                # Synchronize the context
+                if ($this.SyncContext()) {
+                    # If the context has changed or is new, write the context to the log
+                    $this.Write("`n$($this.GetSingleLine())`n$($this.HashtableToString($this.context))`n$($this.GetSingleLine())", 'Info')
                 }
             }
+            #endregion
+            #----------------------------------------------------------------
 
-            # Rename the current log file to the first rollover
-            $this.TryMoveFile($this.LogFilePath, "$($this.LogFilePath).1")
-
-            # Delete the oldest log file if it exists
-            $oldestLog = "$($this.LogFilePath).$($this.maxRollovers)"
-            if ([System.IO.File]::Exists($oldestLog)) {
-                $this.TryDeleteFile($oldestLog)
+            #----------------------------------------------------------------
+            #region Debug
+            #----------------------------------------------------------------
+            # Logs a message at the Debug level
+            [void] Debug([string] $Message) {
+                $this.Write($Message, 'Debug')
             }
 
-            # Reinitialize log for a new file
-            $this.InitializeLog()
-        }
-    }
+            # Logs multiple messages at the Debug level
+            [void] Debug([string[]] $Messages) {
+                $this.Write($Messages, 'Debug')
+            }
+            #endregion
+            #----------------------------------------------------------------
 
-    static [void] Help() {
-        Write-Host @'
-[CsLog] Class
+            #----------------------------------------------------------------
+            #region Error
+            #----------------------------------------------------------------
+            # Logs a message at the Error level
+            [void] Error([string] $Message) {
+                $this.Write($Message, 'Error')
+            }
 
-.SYNOPSIS
-A class for handling script logging in PowerShell.
+            # Logs multiple messages at the Error level
+            [void] Error([string[]] $Messages) {
+                $this.Write($Messages, 'Error')
+            }
+            #endregion
+            #----------------------------------------------------------------
 
-.DESCRIPTION
-    The CsLog class provides an easy way to create and manage log files for PowerShell scripts.
-    It supports features like verbose, info, warning, and error message logging, log rotation based on size,
-    and customizable logging levels.
+            #----------------------------------------------------------------
+            #region Fatal
+            #----------------------------------------------------------------
+            # Logs a message at the Fatal level
+            [void] Fatal([string] $Message) {
+                $this.Write($Message, 'Fatal')
+            }
 
-    Simply create a new instance of the CsLog class, write your messages, and close the log when you're done.
+            # Logs multiple messages at the Fatal level
+            [void] Fatal([string[]] $Messages) {
+                $this.Write($Messages, 'Fatal')
+            }
+            #endregion
+            #----------------------------------------------------------------
 
-.PARAMETER LogFilePath
-    Specifies the path of the log file.
+            #----------------------------------------------------------------
+            #region GetContent
+            #----------------------------------------------------------------
+            # Gets the content of the log file
+            [string[]] GetContent() {
+                return Get-Content -Path $this.LogFile.FullName -Force -Encoding $this.encodingName -ErrorAction SilentlyContinue
+            }
+            #endregion
+            #----------------------------------------------------------------
 
-.PARAMETER MaxSize
-    Sets the maximum size of the log file before it is rolled over. Default is 10MB.
+            #----------------------------------------------------------------
+            #region Help
+            #----------------------------------------------------------------
+            # Displays help for the CsLog class
+            [void] Help() {
+                Write-Host @'
+CsLog Class
 
-.PARAMETER MaxRollovers
-    Specifies the maximum number of rollover log files to keep. Default is 5.
+This class is a simple logging class that writes log messages to a file. It has a few features that make it useful for logging in PowerShell scripts.
 
-.EXAMPLE
-    $logger = [CsLog]::new("C:\logs\mylog.log")
-    $logger.WriteInfo("This is an info message.")
-    $logger.Close()
 
-    This example creates a new instance of CsLog where the file is in c:\logs\mylog.log, writes an info message to the log, and then closes the log.
+Properties
+----------
+LogFile: [System.IO.FileInfo] The log file to write to. If not set, the log file will be created in the default directory with a default name.
+LogMaxBytes: [int32] The maximum size of the log file in bytes before it rolls over. Default is 10MB.
+LogMaxRollovers: [int32] The maximum number of rollover logs to keep. Default is 5.
+RolloverLogs: [System.IO.FileInfo[]] An array of the rollover logs.
+TailLines: [int32] The number of lines to tail from the log file. Default is 40.
+LoggingContext: [ordered] The context to be written to the log. This is a hashtable of key-value pairs that will be written to the log.
+InstantiatedTime: [System.DateTimeOffset] The time the class was instantiated. Default is the current time.
+EchoMessages: [bool] Whether or not to echo log messages to the console. Default is true.
+LevelColors: [hashtable] A hashtable of log level names and their associated console colors. Default is Debug=Gray, Info=White, Warn=Yellow, Error=Red, Fatal=DarkRed.
 
-.EXAMPLE
-    $logger = [CsLog]::new("C:\logs\mylog.log")
-    $logger.WriteWarning("This is a warning message.")
-    $logger.Close()
 
-    This example creates a new instance of CsLog where the file is in c:\logs\mylog.log, writes a warning message to the log, and then closes the log.
+Methods
+-------
+Debug: Logs a message at the Debug level.
+Error: Logs a message at the Error level.
+Fatal: Logs a message at the Fatal level.
+GetContent: Gets the content of the log file.
+Help: Displays help for the CsLog class.
+Info: Logs a message at the Info level.
+Size: Gets the size of the log file.
+Tail: Tails the log file.
+Warn: Logs a message at the Warn level.
 
-.EXAMPLE
-    $logger = [CsLog]::new("C:\logs\mylog.log")
-    $logger.WriteError("This is an error message.")
-    $logger.Close()
 
-    This example creates a new instance of CsLog where the file is in c:\logs\mylog.log, writes an error message to the log, and then closes the log.
+Examples
+--------
+# Create a new log file in the default directory with the default name
+$log = [CsLog]::new()
 
-.EXAMPLE
-    $logger = [CsLog]::new("stuff")
-    $logger.WriteVerbose("This is a verbose message.")
-    $logger.Close()
+# Create a new log file with a specific name
+$log = [CsLog]::new("C:\Logs\MyLog.log")
 
-    This example creates a new instance of CsLog, writes a verbose message to the log, and then closes the log.
-    Here there is no directory nor extension specified, so the log file will be created in C:\ProgramData\1E\CsLogs\stuff.log.
+# Log a message at the Info level
+$log.Info("This is an info message")
 
-.EXAMPLE
-    $logger = [CsLog]::new("stuff")
-    $logger.Write("This is a custom message.")
-    $logger.Close()
+# Log a message at the Warn level
+$log.Warn("This is a warning message")
 
-    This example creates a new instance of CsLog, writes a custom message to the log, and then closes the log.
-    Here there is no directory nor extension specified, so the log file will be created in C:\ProgramData\1E\CsLogs\stuff.log.
+# Log a message at the Error level
+$log.Error("This is an error message")
 
-.EXAMPLE
-    $logger = [CsLog]::new()
-    $logger.Write("This is a custom message.", "WARN")
-    $logger.Close()
+# Log a message at the Fatal level
+$log.Fatal("This is a fatal message")
 
-    This example creates a new instance of CsLog, writes a custom message to the log with a warning level, and then closes the log.
-    Here there is nothing specified at all, so the log file will be created in C:\ProgramData\1E\CsLogs\YYYY.MM.DD.HH.mm.ss.fffffff.log.
+# Log a message at the Debug level
+$log.Debug("This is a debug message")
 
-.NOTES
-    Author: john.nelson@1e.com
-    Version: 202312.1823.2950.1
+# Get the content of the log file
+$log.GetContent()
 
-    Because we make use of the StreamWriter class, the log file can be written to very quickly and efficiently
-    compared to other methods like Out-File or Add-Content. The StreamWriter is also opened in shared read/write
-    mode, so the log file can be opened and read by other processes while the script is running.
+# Get the size of the log file
+$log.Size()
 
-    Don't forget to close the log when you're done with it!
+# Tail the log file
+$log.Tail()
 
-    This class makes use of the following .NET classes:
-        System.IO.File
-        System.IO.FileInfo
-        System.IO.Directory
-        System.IO.StreamWriter
-        System.DateTime
-        System.IO.FileMode
-        System.IO.FileAccess
-        System.IO.FileShare
+# Tail the last 100 lines of the log file
+$log.Tail(100)
 
-    This class makes use of the following PowerShell classes:
-        System.IO.Path        
+# Clear the log file and remove all rollover logs
+$log.Clear()
+
 '@
+            }
+            #endregion
+            #----------------------------------------------------------------
+            
+            #----------------------------------------------------------------
+            #region Info
+            #----------------------------------------------------------------
+            # Logs a message at the Info level
+            [void] Info([string] $Message) {
+                $this.Write($Message, 'Info')
+            }
+
+            # Logs multiple messages at the Info level
+            [void] Info([string[]] $Messages) {
+                $this.Write($Messages, 'Info')
+            }
+            #endregion
+            #----------------------------------------------------------------
+
+            #----------------------------------------------------------------
+            #region Size
+            #----------------------------------------------------------------
+            # Gets the size of the log file
+            [int64] Size() {
+                return (Get-Item -Path $this.LogFile.FullName).Length
+            }
+            #endregion
+            #----------------------------------------------------------------
+
+            #----------------------------------------------------------------
+            #region Tail
+            #----------------------------------------------------------------
+            # Tails the log file
+            [string[]] Tail() {
+                return $this.Tail($this.TailLines)
+            }
+
+            [string[]] Tail([int] $lines) {
+                # If the properties haven't been cleared, and the log exists, tail the log and return the result
+                if ($this.LogFile.FullName -and (Test-Path -Path $this.LogFile.FullName)) {
+                    return Get-Content -Path $this.LogFile.FullName -Tail $lines -Force -Encoding $this.encodingName -ErrorAction SilentlyContinue
+                } else {
+                    return @()
+                }
+            }
+            #endregion
+            #----------------------------------------------------------------
+
+            #----------------------------------------------------------------
+            #region Warn
+            #----------------------------------------------------------------
+            # Logs a message at the Warn level
+            [void] Warn([string] $Message) {
+                $this.Write($Message, 'Warn')
+            }
+
+            # Logs multiple messages at the Warn level
+            [void] Warn([string[]] $Messages) {
+                $this.Write($Messages, 'Warn')
+            }
+            #endregion
+            #----------------------------------------------------------------
+        
+        #endregion
+        #================================================================================================================================
+
+        #================================================================================================================================
+        #region Private Methods
+
+            #----------------------------------------------------------------
+            #region Echo
+            #----------------------------------------------------------------
+            # Echoes a message to the console with the appropriate color
+            hidden [void] Echo([string] $Message, [string] $Level) {
+                Write-Host $Message -ForegroundColor $this.LevelColors[$Level] -NoNewline
+            }
+            #endregion
+            #----------------------------------------------------------------
+
+            #----------------------------------------------------------------
+            #region GetContext
+            #----------------------------------------------------------------
+            # Gets runtime context to be used in a log message
+            [ordered] GetContext() {
+                return [ordered]@{
+                    LOG_NAME =                   $this.LogFile.Name
+                    LOG_BASE_NAME =              $this.LogFile.BaseName
+                    LOG_EXTENSION =              $this.LogFile.Extension
+                    LOG_FULL_NAME =              $this.LogFile.FullName
+                    LOG_DIRECTORY =              $this.LogFile.Directory
+                    LOG_MAX_BYTES =              $this.LogMaxBytes
+                    LOG_MAX_ROLLOVERS =          $this.LogMaxRollovers
+                    RECORD_SEPARATOR_UNICODE =   $this.StringEscape($this.RS)
+                    FIELD_SEPARATOR_UNICODE =    $this.StringEscape($this.FS)
+                    DEVICE_NAME =                $env:COMPUTERNAME
+                    DEVICE_IP =                  $this.deviceIp
+                    USER_SID =                   $this.userSid
+                    SESSION_ID =                 $this.sessionId
+                    SESSION_NAME =               $env:SESSIONNAME
+                    PROCESS_ID =                 $this.processId
+                    OS_NAME =                    $this.os.Caption
+                    OS_VERSION =                 $this.os.Version
+                    OS_ARCHITECTURE =            $this.os.OSArchitecture
+                    OS_SYSTEM_DIRECTORY =        $this.os.SystemDirectory
+                    OS_WINDOWS_DIRECTORY =       $this.os.WindowsDirectory
+                    POWERSHELL_HOST_NAME =       $this.host.Name
+                    POWERSHELL_HOST_VERSION =    $this.host.Version
+                    POWERSHELL_HOST_CULTURE =    $this.host.CurrentCulture
+                    POWERSHELL_HOST_UI_CULTURE = $this.host.CurrentUICulture
+                    POWERSHELL_VERSION =         $this.psVersionTable.PSVersion
+                    POWERSHELL_EDITION =         $this.psVersionTable.PSEdition
+                    SCRIPT_PATH =                $this.PSCommandPath
+                    SCRIPT_DIRECTORY =           $this.PSScriptRoot
+                    TAIL_LINES =                 $this.TailLines
+                }
+            }
+            #endregion
+            #----------------------------------------------------------------
+
+            #----------------------------------------------------------------
+            #region GetLogMessage
+            #----------------------------------------------------------------
+            # Builds a log message from the input message and level
+            [string] GetLogMessage([string] $Level, [string] $Message) {
+                return `
+                    [DateTimeOffset]::Now.ToString("yyyy-MM-dd HH:mm:ss.fffffff zzz") + $this.FS + `
+                    $this.contextHash + $this.FS + `
+                    $level + $this.FS + `
+                    $message + $this.RS
+            }
+            #endregion
+            #----------------------------------------------------------------
+
+            #----------------------------------------------------------------
+            #region GetDoubleLine
+            #----------------------------------------------------------------
+            # Gets a double-line
+            hidden [string] GetDoubleLine() {
+                return '═' * 100
+            }
+            #endregion
+            #----------------------------------------------------------------
+
+            #----------------------------------------------------------------
+            #region GetSingleLine
+            #----------------------------------------------------------------
+            # Gets a single-line
+            hidden [string] GetSingleLine() {
+                return '─' * 100
+            }
+            #endregion
+            #----------------------------------------------------------------
+
+            #----------------------------------------------------------------
+            #region HashtableToString
+            #----------------------------------------------------------------
+            # Converts a hashtable to a readable string
+            hidden [string] HashtableToString([hashtable] $hashTable) {
+                return ($hashTable.GetEnumerator() | Sort-Object | ForEach-Object {"$($_.Key)`: $($_.Value)"}) -join "`n"
+            }      
+            #endregion
+            #----------------------------------------------------------------
+
+            #----------------------------------------------------------------
+            #region MD5
+            #----------------------------------------------------------------
+            # Returns the MD5 hash of the input string
+            hidden [string] MD5([string] $inputString) {
+                return [System.BitConverter]::ToString($this.hasherMD5.ComputeHash($this.encoding.GetBytes($inputString))) -replace '-'
+            }
+            #endregion
+            #----------------------------------------------------------------
+
+            #----------------------------------------------------------------
+            #region RollOver
+            #----------------------------------------------------------------
+            # Rolls over the log file
+            hidden [void] RollOver() {
+                # Get the existing rollover log files (rollover logs are named LogFolder\LogBaseName.*.log where * is a number from 1 to LogMaxRollovers)
+                $this.RolloverLogs = Get-ChildItem -Path $this.LogFile.Directory -Filter "$($this.LogFile.BaseName).*$($this.LogFile.Extension)" -File |
+                    Sort-Object -Property Name
+
+                # If the number of rollover logs is greater than or equal to LogMaxRollovers, delete the oldest rollover log
+                if ($this.RolloverLogs.Count -ge $this.LogMaxRollovers) {
+                    try {
+                        $this.RolloverLogs[-1].Delete()
+                    }
+                    catch {
+                        # If we can't delete the oldest rollover log, do nothing, we'll try to move the data below instead
+                    }
+                }
+
+                # Rename all the existing logs to the next highest number
+                for ($i = $this.LogMaxRollovers; $i -gt 1; $i--) {
+                    $oldLog = [System.IO.Path]::Combine($this.LogFile.Directory, "$($this.LogFile.BaseName).$($i - 1)$($this.LogFile.Extension)")
+                    $newLog = [System.IO.Path]::Combine($this.LogFile.Directory, "$($this.LogFile.BaseName).$($i)$($this.LogFile.Extension)")
+                    if (Test-Path -Path $oldLog) {
+                        Write-Verbose "Rolling over $oldLog --> $newLog"
+                        try {
+                            # try to rename the log file to the next highest rollover
+                            Rename-Item -Path $oldLog -NewName $newLog -Force -ErrorAction Stop
+                        }
+                        catch {
+                            # if we can't rename the log, try to copy its contents to the next highest rollover this is a last-ditch effort
+                            # to preserve the log contents if we can't rename the file for some reason like when the file is in use by 
+                            # another process or the folder it's in is delete protected but we can still write to the file. This is more 
+                            # disk intensive than a rename, but it's better than losing the log contents.
+                            $firstError = $_
+                            try {
+                                Get-Content -Path $oldLog -Raw -Force -ErrorAction Stop | Set-Content -Path $newLog -Force -ErrorAction Stop -Encoding $this.encodingName
+                            }
+                            catch {
+                                Write-Host $firstError
+                                Write-Host $_
+                                throw "Unable to rollover $oldLog --> $newLog"
+                            }
+                        }
+                    }
+                }
+
+                # Rename the current log to .1.log
+                $newLog = [System.IO.Path]::Combine($this.LogFile.Directory, "$($this.LogFile.BaseName).1$($this.LogFile.Extension)")
+                Write-Verbose "Rolling over $($this.LogFile.FullName) --> $newLog"
+                try {
+                    Rename-Item -Path $this.LogFile.FullName -NewName $newLog -Force -ErrorAction Stop
+                }
+                catch {
+                    $firstError = $_
+                    # if we can't rename the log, try to copy its contents to the archive
+                    try {
+                        Get-Content -Path $this.LogFile.FullName -Raw -Force -ErrorAction Stop | Set-Content -Path $newLog -Encoding $this.encodingName -Force -ErrorAction Stop
+                    }
+                    catch {
+                        Write-Error $firstError
+                        Write-Error $_
+                        throw "Unable to rollover $($this.LogFile.FullName) --> $newLog"
+                    }
+                    # clear the log file contents since we couldn't rename it
+                    Set-Content -Path $this.LogFile.FullName -Value '' -Force -Encoding $this.encodingName -ErrorAction Stop
+                }
+
+                # re-populate the list of rollover logs (this is a bit redundant, but it makes sure the list is for sure up to date)
+                $this.RolloverLogs = Get-ChildItem -Path $this.LogFile.Directory -Filter "$($this.LogFile.BaseName).*$($this.LogFile.Extension)" -File |
+                    Sort-Object -Property Name -Descending
+
+                # clear the context hash so the context will always be written to the new log
+                $this.contextHash = $null
+            }
+            #endregion
+            #----------------------------------------------------------------
+
+            #----------------------------------------------------------------
+            #region SHA1
+            #----------------------------------------------------------------
+            # Returns the SHA1 hash of the input string
+            hidden [string] SHA1([string] $inputString) {
+                return [System.BitConverter]::ToString($this.hasherSHA1.ComputeHash($this.encoding.GetBytes($inputString))) -replace '-'
+            }
+            #endregion
+            #----------------------------------------------------------------
+
+            #----------------------------------------------------------------
+            #region SHA256
+            #----------------------------------------------------------------
+            # Returns the SHA256 hash of the input string
+            hidden [string] SHA256([string] $inputString) {
+                return [System.BitConverter]::ToString($this.hasherSHA256.ComputeHash($this.encoding.GetBytes($inputString))) -replace '-'
+            }
+            #endregion
+            #----------------------------------------------------------------
+
+            #----------------------------------------------------------------
+            #region StringToFileInfo
+            #----------------------------------------------------------------
+            # Converts a string representing a path of somekind (like Name, FullName, BaseName) to a
+            # FileInfo object using defaults if there's not enough to make a [System.IO.FileInfo] object
+            hidden [System.IO.FileInfo] StringToFileInfo([string] $Path) {
+                # If the path is empty, set it to a default value of defaultPrefix + defaultNamePattern which is CsLog_yyyyMMdd_HHmmss.log
+                if (-not $Path) {
+                    $Path = $this.defaultPrefix + [System.DateTime]::Now.ToString($this.defaultNamePattern)
+                }
+
+                # Get the parts of the path passed in so we know if we've been given a full path or just a file name
+                $directory = [System.IO.Path]::GetDirectoryName($Path)
+                $name = [System.IO.Path]::GetFileName($Path)
+                $extension = [System.IO.Path]::GetExtension($Path)
+
+                # If the log name doesn't have an extension, add default extension
+                if (-not $extension) {
+                    $name = $name + $this.defaultExtension
+                }
+
+                # If the log name doesn't have a directory, use the preferred log folder
+                if (-not $directory) {
+                    $directory = $this.defaultDirectory
+                }
+
+                # Return a new FileInfo object        
+                return [System.IO.FileInfo]::new([System.IO.Path]::Combine($directory, $name))
+            }
+            #endregion
+            #----------------------------------------------------------------
+
+            #----------------------------------------------------------------
+            #region StringEscape
+            #----------------------------------------------------------------
+            # Converts a string to escaped unicode. Useful for seeing what invisible or non-ASCII characters are in the string
+            [string] StringEscape([string]$inputString) {
+                $sb = New-Object System.Text.StringBuilder
+                # Loop through each character in the input string and append the escaped unicode value to the string builder
+                foreach ($char in $inputString.ToCharArray()) {
+                    [void]$sb.Append('\u{0:X4}' -f [int]$char)
+                }
+                return $sb.ToString()
+            }
+            #endregion
+            #----------------------------------------------------------------
+
+            #----------------------------------------------------------------
+            #region SyncContext
+            #----------------------------------------------------------------
+            # Synchronizes the context with the current context. Returns true if the context has changed or is new, otherwise returns false
+            hidden [bool] SyncContext() {
+                # Get the logging context
+                $this.context = $this.GetContext()
+
+                # Update the context hash with the current context
+                $this.LoggingContext = $this.context # Just in case the user wants to see the context
+                $this.contextHash = $this.MD5($this.HashtableToString($this.Context))
+
+                # If the contextHash is already found in the log, return false, otherwise return true
+                return -not (Select-String -Path $this.LogFile.FullName -Pattern $this.contextHash -Quiet)
+            }    
+            #endregion
+            #----------------------------------------------------------------
+
+            #----------------------------------------------------------------
+            #region Write
+            #----------------------------------------------------------------
+            #Write (single message)
+            hidden [void] Write([string] $Message, [string] $Level = 'Info') {
+                # Build the log message
+                $msg = $this.GetLogMessage($level, $message)
+
+                try {
+
+                    # Open the log file with a StreamWriter
+                    $streamWriter = [System.IO.StreamWriter]::new($this.LogFile, $true, $this.encoding)
+
+                    try {
+                        # see if the message will make the log exceed the LogMaxBytes property
+                        if (($this.encoding.GetByteCount($msg) + $streamWriter.BaseStream.Length) -ge $this.LogMaxBytes) {
+                            # if it will, close the log...
+                            $streamWriter.Close()
+                            # ...and roll it over
+                            $this.RollOver()
+                            # then open the log again
+                            $streamWriter = [System.IO.StreamWriter]::new($this.LogFile, $true, $this.encoding)
+                            # Synchronize the context to the class property
+                            if ($this.SyncContext()) {
+                                # If the context has changed or is new, write the context to the log
+                                $streamWriter.Write($this.GetLogMessage("$($this.GetSingleLine())`n$($this.HashtableToString($this.context))`n$($this.GetSingleLine())", 'Info'))
+                            }
+                            # get the message again, as the the original timestamp has changed
+                            $msg = $this.GetLogMessage($level, $message)
+                        }
+
+                        # Write the message to the log
+                        $streamWriter.Write($msg)
+
+                        # Echo the message to the console if EchoMessages is true
+                        if ($this.EchoMessages) {
+                            $this.Echo($msg, $level)
+                        }
+                    }
+                    catch {
+                        # If there was an error writing to the log, write the error to the console
+                        Write-Error "Error writing to log:`n$_"
+                    }
+                    finally {
+                        # Close the log if it's open
+                        if ($streamWriter) {$streamWriter.Close()}
+                    }
+                }
+                catch {
+                    # If there was an error writing to the log, write the error to the console
+                    Write-Host "Error writing to log:`n$_"
+                }
+            }
+            
+            #Write (multiple messages)
+            hidden [void] Write([string[]] $Messages, [string] $Level = 'Info') {
+                # Open the log file with a StreamWriter
+                $streamWriter = [System.IO.StreamWriter]::new($this.LogFile, $true, $this.encoding)
+
+                try {
+
+                    # Loop through each message and write it to the log without closing in between (unless the log rolls over)
+                    foreach ($message in $Messages) {
+                        # Build the log message
+                        $msg = $this.GetLogMessage($level, $message)
+                        # see if the message will make the log exceed the LogMaxBytes property
+                        if (($this.encoding.GetByteCount($msg) + $streamWriter.BaseStream.Length) -ge $this.LogMaxBytes) {
+                            # if it will, close the log...
+                            $streamWriter.Close()
+                            # ...and roll it over
+                            $this.RollOver()
+                            # then open the log again
+                            $streamWriter = [System.IO.StreamWriter]::new($this.LogFile, $true, $this.encoding)
+                            # Synchronize the context to the class property
+                            if ($this.SyncContext()) {
+                                # If the context has changed or is new, write the context to the log
+                                $streamWriter.Write($this.GetLogMessage("$($this.GetSingleLine())`n$($this.HashtableToString($this.context))`n$($this.GetSingleLine())", 'Info'))
+                            }
+                            # get the message again, as the the original timestamp has changed
+                            $msg = $this.GetLogMessage($level, $message)
+                        }
+
+                        # Write the message to the log
+                        $streamWriter.Write($msg)
+
+                        # Echo the message to the console if EchoMessages is true
+                        if ($this.EchoMessages) {
+                            $this.Echo($msg, $level)
+                        }
+                    }
+                }
+                catch {
+                    # If there was an error writing to the log, write the error to the console
+                    Write-Error "Error writing to log:`n$_"
+                }
+                finally {
+                    # Close the log if it's open
+                    if ($streamWriter) {$streamWriter.Close()}
+                }
+            }
+            #endregion
+            #----------------------------------------------------------------    
+
+
+        #endregion
+        #================================================================================================================================
     }
-}
+    #endregion
+    #----------------------------------------------------------------
 
 #endregion Classes
 
@@ -470,7 +826,7 @@ function ConvertTo-XmlString {
             $xmlDocument.Load($tempFile)
             $settings = New-Object System.Xml.XmlWriterSettings
             $settings.OmitXmlDeclaration = $false
-            $settings.Encoding = [System.Text.Encoding]::UTF8
+            $settings.Encoding = [System.Text.Encoding]::Unicode
             $settings.Indent = $true
             $settings.IndentChars = '    '
             $stringWriter = New-Object System.IO.StringWriter
@@ -554,6 +910,40 @@ function Get-JulianDay {
     }
 }
 
+function New-Cslog {
+    <#
+    .SYNOPSIS
+        Creates a new instance of the CsLog class.
+
+    .DESCRIPTION
+        The New-Cslog function creates a new instance of the CsLog class. The function supports creating a new log file with a specified file path, or using a default file path based on the script name and current date and time.
+
+    .PARAMETER LogFilePath
+        Specifies the path of the log file. If the parameter is not specified, the default log file path is used.
+
+    .EXAMPLE
+        PS> New-Cslog -LogFilePath "C:\logs\mylog.log"
+        This example creates a new instance of the CsLog class with the specified log file path.
+
+    .EXAMPLE
+        PS> New-Cslog
+        This example creates a new instance of the CsLog class with the default log file path.
+
+    .OUTPUTS
+        CsLog
+        The output is an instance of the CsLog class.
+
+    .NOTES
+        Author:
+        Version: 1.0
+        Date: 2024-03-03
+    #>
+    param (
+        [string] $LogFilePath
+    )
+    return [CsLog]::new($LogFilePath)
+}
+
 function New-Separator {
     <#
     .SYNOPSIS
@@ -633,7 +1023,7 @@ function New-Separator {
         if ($adjustedLength -lt 0) {
             throw "Length is too short to include the name"
         }
-        $middle = $middleChar * 2 + $name + $middleChar * ($adjustedLength - 1)
+        $middle = $middleChar * 2 + $name + $middleChar * ($adjustedLength - 2)
         return $leftChar + $middle + $rightChar
     }
 
@@ -710,6 +1100,46 @@ function New-Version {
     
 }
 
+function Test-IsDirectory {
+    <#
+    .SYNOPSIS
+    Tests if a path is a directory.
+
+    .DESCRIPTION
+    Tests if a path is a directory. Works with both strings and System.IO.FileSystemInfo objects like FileInfo, DirectoryInfo and FileSystemInfo
+
+    .PARAMETER Path
+    The path to test.  Can be a string or a System.IO.FileSystemInfo object like FileInfo, DirectoryInfo and FileSystemInfo
+
+    .EXAMPLE
+    Test-IsDirectory -Path 'C:\Windows'
+    Returns: True
+
+    .EXAMPLE
+    Test-IsDirectory -Path 'C:\Windows\myfile.txt'
+    Returns: False
+
+    .EXAMPLE
+    Test-IsDirectory -Path (Get-Item 'C:\Windows')
+    Returns: True
+
+    .NOTES
+    Author: john.nelson@1e.com
+    Date: 2024-03-06
+
+    #>
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
+        [System.Object]$Path
+    )
+
+    process {
+        if ($Path -is [System.IO.FileSystemInfo]) {$Path = $Path.FullName}
+        return Test-Path -Path $Path -PathType Container
+    }
+}
+
 #endregion Functions
 
 #region Public
@@ -727,4 +1157,9 @@ if (-not (Get-Module -Name Ps1eToolkit -ListAvailable)) {
         return
     }
 }
+
+# Export the module functions
+Export-ModuleMember -Function * -Cmdlet * -Variable * -Alias *
+
+
 #endregion Public
