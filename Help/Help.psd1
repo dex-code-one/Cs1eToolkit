@@ -9,7 +9,7 @@
     # CompatiblePSEditions = @()
     
     # ID used to uniquely identify this module
-    GUID = '1cad256e-ea7d-438c-80ad-09d198e13139'
+    GUID = '435c91fa-9937-4fd8-8a80-29e195837a18'
     
     # Author of this module
     Author = 'john.nelson@1e.com'
@@ -21,7 +21,7 @@
     Copyright = '(c) 1E Inc. All rights reserved.'
     
     # Description of the functionality provided by this module
-    Description = 'This is the eToolkit.Help module.  It contains all of the classes and functions that are used by the eToolkit modules to provide help information.'
+    Description = 'This is the eToolkit.Log module.  It contains all of the classes and functions that are used by the eToolkit modules to provide logging functionality.'
     
     # Minimum version of the PowerShell engine required by this module
     PowerShellVersion = '7.0'
@@ -42,7 +42,7 @@
     # ProcessorArchitecture = ''
     
     # Modules that must be imported into the global environment prior to importing this module
-    RequiredModules = @(@{ModuleName = 'Ps1eToolkit'; ModuleVersion = '1.2.9'; })
+    # RequiredModules = @(@{ModuleName = 'Ps1eToolkit'; ModuleVersion = '1.2.9'; })
     
     # Assemblies that must be loaded prior to importing this module
     # RequiredAssemblies = @()

@@ -1,6 +1,6 @@
 @{
     # Script module or binary module file associated with this manifest.
-    RootModule = 'Common.psm1'
+    RootModule = 'Log.psm1'
    
     # Version number of this module.
     ModuleVersion = '0.0.1'
@@ -9,7 +9,7 @@
     # CompatiblePSEditions = @()
     
     # ID used to uniquely identify this module
-    GUID = '9c6b3cc3-b1ba-4dc0-a743-a19c25704e87'
+    GUID = '435c91fa-9937-4fd8-8a80-29e195837a18'
     
     # Author of this module
     Author = 'john.nelson@1e.com'
@@ -21,7 +21,7 @@
     Copyright = '(c) 1E Inc. All rights reserved.'
     
     # Description of the functionality provided by this module
-    Description = 'This is the eToolkit.Common module.  It contains all of the common classes and functions that are used by the eToolkit modules.'
+    Description = 'This is the eToolkit.Log module.  It contains all of the classes and functions that are used by the eToolkit modules to provide logging functionality.'
     
     # Minimum version of the PowerShell engine required by this module
     PowerShellVersion = '7.0'
@@ -42,7 +42,7 @@
     # ProcessorArchitecture = ''
     
     # Modules that must be imported into the global environment prior to importing this module
-    RequiredModules = @(@{ModuleName = 'eClasses.Help'; ModuleVersion = '0.0.1'; })
+    RequiredModules = @(@{ModuleName = 'Ps1eToolkit'; ModuleVersion = '1.2.9'; })
     
     # Assemblies that must be loaded prior to importing this module
     # RequiredAssemblies = @()
@@ -57,7 +57,7 @@
     # FormatsToProcess = @()
     
     # Modules to import as nested modules of the module specified in RootModule/ModuleToProcess
-    NestedModules = @('Help/Help.psm1')
+    # NestedModules = @('Classes/ScriptLog.psm1')
     
     # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
     FunctionsToExport = '*'

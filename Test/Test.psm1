@@ -1,5 +1,3 @@
-
-
 #╔═══BASE═════════════════════════════════════════════════════════════════════════════════════════════════════════════╗
     #region
     # This region contains the base classes that are used throughout the eClasses module

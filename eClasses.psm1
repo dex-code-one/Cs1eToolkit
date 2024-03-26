@@ -1,28 +1,121 @@
+#region HELP INTELLISENSE
+#Uncomment this region to enable intellisense for the eClasses module, otherwise, leave it commented out before releasing
 
+# class eHelpAttribute {
+#     [string]$Content
+
+#     eHelpAttribute([string]$content) {
+#         $this.Content = $content
+#     }
+
+#     [string] ToString() {
+#         return $this.Content
+#     }
+# }
+
+# class eHelpNamedAttribute : eHelpAttribute {
+#     [string]$Name
+
+#     eHelpNamedAttribute([string]$name, [string]$content) : base($content) {
+#         $this.Name = $name
+#     }
+
+#     [string] ToString() {
+#         return $this.Name + "`n" + $this.Content
+#     }
+# }
+
+# class eHelpSynopsis : eHelpAttribute {
+#     eHelpSynopsis() : base("") { }
+#     eHelpSynopsis([string]$content) : base($content) { }
+
+#     [string] ToString() {
+#         return ".SYNOPSIS`n" + $this.Content
+#     }
+# }
+
+# class eHelpDescription : eHelpAttribute {
+#     eHelpDescription() : base("") { }
+#     eHelpDescription([string]$content) : base($content) { }
+
+#     [string] ToString() {
+#         return ".DESCRIPTION`n" + $this.Content
+#     }
+# }
+
+# class eHelpNotes : eHelpAttribute {
+#     eHelpNotes() : base("") { }
+#     eHelpNotes([string]$content) : base($content) { }
+
+#     [string] ToString() {
+#         return ".NOTES`n" + $this.Content
+#     }
+# }
+
+# class eHelpLink : eHelpAttribute {
+#     eHelpLink() : base("") { }
+#     eHelpLink([string]$content) : base($content) { }
+
+#     [string] ToString() {
+#         return ".LINK`n" + $this.Content
+#     }
+# }
+
+# class eHelpParameter : eHelpNamedAttribute {
+#     eHelpParameter() : base("", "") { }
+#     eHelpParameter([string]$name, [string]$content) : base($name, $content) { }
+
+#     [string] ToString() {
+#         return ".PARAMETER " + $this.Name + "`n" + $this.Content
+#     }
+# }
+
+# class eHelpExample : eHelpAttribute {
+#     eHelpExample() : base("") { }
+#     eHelpExample([string]$content) : base($content) { }
+
+#     [string] ToString() {
+#         return ".EXAMPLE`n" + $this.Content
+#     }
+# }
+
+# class eHelpProperty : eHelpNamedAttribute {
+#     eHelpProperty() : base("", "") { }
+#     eHelpProperty([string]$name, [string]$content) : base($name, $content) { }
+
+#     [string] ToString() {
+#         return ".PROPERTY " + $this.Name + "`n" + $this.Content
+#     }
+# }
+
+# class eHelpOutputs : eHelpAttribute {
+#     eHelpOutputs() : base("") { }
+#     eHelpOutputs([string]$content) : base($content) { }
+
+#     [string] ToString() {
+#         return ".RETURN`n" + $this.Content
+#     }
+# }
+
+#endregion
 
 #╔═══BASE═════════════════════════════════════════════════════════════════════════════════════════════════════════════╗
     #region
-    # This region contains the base classes that are used throughout the eClasses module
+    # This region contains the other base classes that are needed to use the eHelp above
 
     #--------------------------------------------
     #region class eEncoding
     #--------------------------------------------
-    [eHelpSynopsis('Static class to provide global encoding options for the eClasses module.')]
-    [eHelpDescription('This class is a static class to provide global encoding options for the eClasses module.')]
-    [eHelpNotes('This is a static class and is not meant to instantiate.  The default encoding is Unicode but this can be changed with`n[eEncoding]::$Encoding = [System.Text.Encoding]::UTF8')]
+    [eHelpSynopsis('This class is used to provide global encoding options for the eClasses module')]
+    [eHelpDescription('This class is used to provide global encoding options for the eClasses module')]
     [eHelpExample(@'
-PS> [eEncoding]::Encoding = [System.Text.Encoding]::UTF8
-
-Changes the default encoding to UTF8
+eEncoding.Encoding = [System.Text.Encoding]::UTF8
+$encodedString = [eEncoding]::Encoding.GetBytes('Hello, World!')
 '@)]
-    [eHelpExample(@'
-PS>$bytes = [eEncoding]::Encoding.GetBytes("Hello, World!")
-
-Converts the string "Hello, World!" to a byte array using the default encoding
-'@)]
+    [eHelpNotes('')]
     [eHelpLink('')]
     class eEncoding {
-        # Static class to provide global encoding options for the eClasses module
+        [eHelpProperty('Encoding', 'The encoding to use for the eClasses module`nThis is set to Unicode by default, but can be changed with`n[eEncoding]::Encoding = [System.Text.Encoding]::UTF8')]
         static [System.Text.Encoding] $Encoding = [System.Text.Encoding]::Unicode
     }
     #endregion
@@ -30,9 +123,14 @@ Converts the string "Hello, World!" to a byte array using the default encoding
     #--------------------------------------------
     #region enum eNewlineAdd
     #--------------------------------------------
-    [eHelpSynopsis('Enumeration to determine where a newline character should be added.')]
-    [eHelpDescription('This enumeration is used to determine where a newline character should be added.')]
-    [eHelpNotes('This enumeration is used by classes like eString to determine where a newline character should be added.`nNote: Before and After can be combined to add a newline before and after the string.')]
+    [eHelpSynopsis('This enum is used to determine where a newline character should be added')]
+    [eHelpDescription('This enum is used to determine where a newline character should be added')]
+    [eHelpExample(@'
+$Value = 'Hello, World!'
+$NewlineAdd = [eNewlineAdd]::Before
+$Value = [eString]::AddNewLine($Value, $NewlineAdd)
+'@)]
+    [eHelpNotes('')]
     [eHelpLink('')]
     [flags()] enum eNewlineAdd {
         # Used to determine where a newline character should be added
@@ -46,8 +144,16 @@ Converts the string "Hello, World!" to a byte array using the default encoding
     #--------------------------------------------
     #region class eString
     #--------------------------------------------
-    [eHelpSynopsis('Class to provide additional common string manipulation methods.')]
-    [eHelpDescription('This class is meant to be used as a [System.String] replacement of sorts providing consistency and additional common string manipulation methods.')]
+    [eHelpSynopsis('This class is used to provide additional common string manipulation methods')]
+    [eHelpDescription('This class is used to provide additional common string manipulation methods')]
+    [eHelpExample(@'
+$Value = [eString]::new('Hello, World!')
+$Value.AddIndent().ConvertToComment()
+
+Value
+-----
+#    Hello, World!
+'@)]
     [eHelpNotes('')]
     [eHelpLink('')]
     class eString {
@@ -57,7 +163,7 @@ Converts the string "Hello, World!" to a byte array using the default encoding
         #============================================
         #region Properties
         #============================================
-        [eHelpProperty('Value', 'The string value.')]
+        [eHelpProperty('Value', 'The string value')]
         [string] $Value
         #endregion
 
@@ -65,7 +171,7 @@ Converts the string "Hello, World!" to a byte array using the default encoding
         #============================================
         #region Static/Hidden Properties
         #============================================
-        [eHelpProperty('IndentSize', '(static, hidden) Sets the default size of the indentation if not passed in')]
+        [eHelpProperty('IndentSize', 'The default size of the indentation. This is set to 4 by default')]
         static hidden [int] $IndentSize = 4
         #endregion
 
@@ -75,14 +181,12 @@ Converts the string "Hello, World!" to a byte array using the default encoding
         #============================================
 
         #region Empty
-        [eHelpSynopsis('Creates a new eString object with an empty string.')]
-        [eHelpDescription('This empty constructor creates a new eString object with an empty string.')]
+        [eHelpSynopsis('Creates a new eString object with an empty string')]
+        [eHelpDescription('Empty constructor for the eString class. Creates a new eString object with an empty string')]
         [eHelpExample(@'
-PS> $str = [eString]::new()
-
-Creates a new eString object with an empty string.
+$Value = [eString]::new()
 '@)]
-        [eHelpNotes('This constructor takes no parameters and creates a new eString object with an empty string.')]
+        [eHelpNotes('')]
         [eHelpLink('')]
         eString() {
             $this.Value = ''
@@ -90,13 +194,11 @@ Creates a new eString object with an empty string.
         #endregion
 
         #region [string] Value
-        [eHelpSynopsis('Creates a new eString object with the specified string value.')]
-        [eHelpDescription('This constructor creates a new eString object using the specified string value.')]
-        [eHelpParameter('Value', '[System.String] The string value to use when initializing the eString object.')]
+        [eHelpSynopsis('Creates a new eString object with the specified string value')]
+        [eHelpDescription('Overloaded constructor for the eString class. Creates a new eString object with the specified string value')]
+        [eHelpParameter('Value', 'The string value to use',[string])]
         [eHelpExample(@'
-PS> $str = [eString]::new('Hello, World!')
-
-Creates a new eString object with the value 'Hello, World!'
+$Value = [eString]::new('Hello, World!')
 '@)]
         [eHelpNotes('')]
         [eHelpLink('')]
@@ -106,13 +208,11 @@ Creates a new eString object with the value 'Hello, World!'
         #endregion
 
         #region [eString] Value
-        [eHelpSynopsis('Creates a new eString object with the specified eString value.')]
-        [eHelpDescription('This constructor creates a new eString object using the specified eString value.')]
-        [eHelpParameter('Value', '[eString] The eString value to use when initializing the eString object.')]
+        [eHelpSynopsis('Creates a new eString object with the specified eString value')]
+        [eHelpDescription('Overloaded constructor for the eString class. Creates a new eString object with the specified eString value')]
+        [eHelpParameter('Value', 'The eString value to use',[eString])]
         [eHelpExample(@'
-PS> $str = [eString]::new($eStr)
-
-Creates a new eString object with the value of the eString object $eStr
+$Value = [eString]::new([eString]::new('Hello, World!'))
 '@)]
         [eHelpNotes('')]
         [eHelpLink('')]
@@ -131,27 +231,91 @@ Creates a new eString object with the value of the eString object $eStr
         #region AddIndent
         #--------------------------------------------
         # Adds indentation to the current string
+        [eHelpSynopsis('Adds indentation to the empty string')]
+        [eHelpDescription('Adds indentation to the empty string')]
+        [eHelpOutputs('[eString]')]
+        [eHelpExample(@'
+$Value = [eString]::new('Hello, World!')
+$Value.AddIndent()
+'@)]
+        [eHelpNotes('The default indentation size is 4')]
+        [eHelpLink('')]
         [eString] AddIndent() {
             return [eString]::AddIndent($this.Value, [eString]::IndentSize)
         }
 
+
+        [eHelpSynopsis('Adds indentation to the empty eString')]
+        [eHelpDescription('Overloaded method for the AddIndent method. Allows you to specify the size of the indentation')]
+        [eHelpParameter('IndentSize', 'The size of the indentation to add',[int])]
+        [eHelpOutputs('[eString]')]
+        [eHelpExample(@'
+$Value = [eString]::new('Hello, World!')
+$Value.AddIndent(2)
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         [eString] AddIndent([int] $IndentSize) {
             return [eString]::AddIndent($this.Value, $IndentSize)
         }
 
+
+        [eHelpSynopsis('Adds indentation to the specified string')]
+        [eHelpDescription('STATIC Overloaded method for the AddIndent method. Adds indentation to the specified string')]
+        [eHelpParameter('Value', 'The string value to add indentation to',[string])]
+        [eHelpOutputs('[eString]')]
+        [eHelpExample(@'
+$Value = 'Hello, World!'
+[eString]::AddIndent($Value)
+'@)]
+        [eHelpNotes('The default indentation size is 4')]
+        [eHelpLink('')]
         static [eString] AddIndent([string] $Value) {
             return [eString]::AddIndent($Value, [eString]::IndentSize)
         }
 
+        [eHelpSynopsis('Adds indentation to the specified eString')]
+        [eHelpDescription('STATIC Overloaded method for the AddIndent method. Allows you to specify the size of the indentation')]
+        [eHelpParameter('Value', 'The eString value to add indentation to',[string])]
+        [eHelpParameter('IndentSize', 'The size of the indentation to add',[int])]
+        [eHelpOutputs('[eString]')]
+        [eHelpExample(@'
+$Value = 'Hello, World!'
+[eString]::AddIndent($Value, 2)
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         static [eString] AddIndent([string] $Value, [int] $IndentSize) {
             $indentation = ' ' * [math]::Max(($IndentSize),0)
             return [eString]::new(($Value -split "`n" | ForEach-Object { "${indentation}$_" }) -join "`n")
         }
 
+        [eHelpSynopsis('Adds indentation to the specified eString')]
+        [eHelpDescription('STATIC Overloaded method for the AddIndent method. Adds indentation to the specified eString')]
+        [eHelpParameter('Value', 'The eString value to add indentation to',[eString])]
+        [eHelpOutputs('[eString]')]
+        [eHelpExample(@'
+$Value = [eString]::new('Hello, World!')
+[eString]::AddIndent($Value)
+'@)]
+        [eHelpNotes('The default indentation size is 4')]
+        [eHelpLink('')]
         static [eString] AddIndent([eString] $Value) {
             return [eString]::AddIndent($Value.Value, [eString]::IndentSize)
         }
 
+
+        [eHelpSynopsis('Adds indentation to the specified eString')]
+        [eHelpDescription('STATIC Overloaded method for the AddIndent method. Allows you to specify the size of the indentation')]
+        [eHelpParameter('Value', 'The eString value to add indentation to',[eString])]
+        [eHelpParameter('IndentSize', 'The size of the indentation to add',[int])]
+        [eHelpOutputs('[eString]')]
+        [eHelpExample(@'
+$Value = [eString]::new('Hello, World!')
+[eString]::AddIndent($Value, 2)
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         static [eString] AddIndent([eString] $Value, [int] $IndentSize) {
             return [eString]::AddIndent($Value.Value, $IndentSize)
         }
@@ -161,27 +325,92 @@ Creates a new eString object with the value of the eString object $eStr
         #region AddNewLine
         #--------------------------------------------
         # Adds a new line to the current string
+        [eHelpSynopsis('Adds a new line to the empty string')]
+        [eHelpDescription('Adds a new line to the empty string')]
+        [eHelpOutputs('[eString]')]
+        [eHelpExample(@'
+$Value = [eString]::new()
+$Value.AddNewLine()
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         [eString] AddNewLine() {
             return [eString]::AddNewLine($this.Value, [eNewlineAdd]::After)
         }
 
+
+        [eHelpSynopsis('Adds a new line to the empty eString')]
+        [eHelpDescription('Overloaded method for the AddNewLine method. Allows you to specify where the new line should be added')]
+        [eHelpParameter('NewlineAdd', 'The location to add the new line',[eNewlineAdd])]
+        [eHelpOutputs('[eString]')]
+        [eHelpExample(@'
+$Value = [eString]::new('Hello, World!')
+$Value.AddNewLine([eNewlineAdd]::Before)
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         [eString] AddNewLine([eNewlineAdd] $NewlineAdd) {
             return [eString]::AddNewLine($this.Value, $NewlineAdd)
         }
 
+
+        [eHelpSynopsis('Adds a new line to the specified string')]
+        [eHelpDescription('STATIC Overloaded method for the AddNewLine method. Adds a new line to the specified string')]
+        [eHelpParameter('Value', 'The string value to add a new line to',[string])]
+        [eHelpOutputs('[eString]')]
+        [eHelpExample(@'
+$Value = 'Hello, World!'
+[eString]::AddNewLine($Value)
+'@)]
+        [eHelpNotes('The new line is added after the specified string')]
+        [eHelpLink('')]
         static [eString] AddNewLine([string] $Value) {
             return [eString]::AddNewLine($Value, [eNewlineAdd]::After)
         }
 
+
+        [eHelpSynopsis('Adds a new line to the specified string')]
+        [eHelpDescription('STATIC Overloaded method for the AddNewLine method. Accepts an eString object')]
+        [eHelpParameter('Value', 'The eString value to add a new line to',[eString])]
+        [eHelpOutputs('[eString]')]
+        [eHelpExample(@'
+$Value = [eString]::new('Hello, World!')
+[eString]::AddNewLine($Value)
+'@)]
+        [eHelpNotes('The new line is added after the specified string')]
+        [eHelpLink('')]
         static [eString] AddNewLine([eString] $Value) {
             return [eString]::AddNewLine($Value.Value, [eNewlineAdd]::After)
         }
 
+
+        [eHelpSynopsis('Adds a new line to the specified string')]
+        [eHelpDescription('STATIC Overloaded method for the AddNewLine method. Allows you to pass an eString and specify where the new line should be added (Before, After, Both)')]
+        [eHelpParameter('Value', 'The string value to add a new line to',[eString])]
+        [eHelpParameter('NewlineAdd', 'The location to add the new line',[eNewlineAdd])]
+        [eHelpOutputs('[eString]')]
+        [eHelpExample(@'
+$Value = [eString]::new('Hello, World!')
+[eString]::AddNewLine($Value, [eNewlineAdd]::Before)
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         static [eString] AddNewLine([eString] $Value, [eNewlineAdd] $NewlineAdd) {
             return [eString]::AddNewLine($Value.Value, $NewlineAdd)
         }
 
-        # $NewlineAdd can be [eNewlineAdd]::Before, [eNewlineAdd]::After or [eNewlineAdd]::Both
+
+        [eHelpSynopsis('Adds a new line to the specified string')]
+        [eHelpDescription('STATIC Overloaded method for the AddNewLine method. Allows you to specify where the new line should be added')]
+        [eHelpParameter('Value', 'The string value to add a new line to',[string])]
+        [eHelpParameter('NewlineAdd', 'The location to add the new line',[eNewlineAdd])]
+        [eHelpOutputs('[eString]')]
+        [eHelpExample(@'
+$Value = 'Hello, World!'
+[eString]::AddNewLine($Value, [eNewlineAdd]::Before)
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         static [eString] AddNewLine([string] $Value, [eNewlineAdd] $NewlineAdd) {
             $newValue = $Value
             if ($NewlineAdd -band [eNewlineAdd]::Before) {$newValue = "`n$newValue"}
@@ -193,7 +422,16 @@ Creates a new eString object with the value of the eString object $eStr
         #--------------------------------------------
         #region Chars
         #--------------------------------------------
-        # Returns the character at a specified position in the current string
+        [eHelpSynopsis('Returns the character at the specified index')]
+        [eHelpDescription('Returns the character at the specified index')]
+        [eHelpParameter('Index', 'The index of the character to return',[int])]
+        [eHelpOutputs('[char]')]
+        [eHelpExample(@'
+$Value = [eString]::new('Hello, World!')
+$Value.Chars(0)
+'@)]
+        [eHelpNotes('The index is zero-based')]
+        [eHelpLink('')]
         [char] Chars([int] $Index) {
             if ($Index -lt 0 -or $Index -ge $this.Value.Length) {
                 throw [System.ArgumentOutOfRangeException]::new("index", "Index must be within the bounds of the string.")
@@ -201,6 +439,18 @@ Creates a new eString object with the value of the eString object $eStr
             return $this.Value[$Index]
         }
 
+
+        [eHelpSynopsis('Returns the character at the specified index')]
+        [eHelpDescription('STATIC Overloaded method for the Chars method. Returns the character at the specified index of the specified string')]
+        [eHelpParameter('Value', 'The string value to return the character from',[string])]
+        [eHelpParameter('Index', 'The index of the character to return',[int])]
+        [eHelpOutputs('[char]')]
+        [eHelpExample(@'
+$Value = 'Hello, World!'
+[eString]::Chars($Value, 2)
+'@)]
+        [eHelpNotes('The index is zero-based')]
+        [eHelpLink('')]
         static [char] Chars([string] $Value, [int] $Index) {
             if ($Index -lt 0 -or $Index -ge $Value.Length) {
                 throw [System.ArgumentOutOfRangeException]::new("index", "Index must be within the bounds of the string.")
@@ -208,6 +458,18 @@ Creates a new eString object with the value of the eString object $eStr
             return $Value[$Index]
         }
 
+
+        [eHelpSynopsis('Returns the character at the specified index')]
+        [eHelpDescription('STATIC Overloaded method for the Chars method. Returns the character at the specified index of the specified eString')]
+        [eHelpParameter('Value', 'The eString value to return the character from',[eString])]
+        [eHelpParameter('Index', 'The index of the character to return',[int])]
+        [eHelpOutputs('[char]')]
+        [eHelpExample(@'
+$Value = [eString]::new('Hello, World!')
+[eString]::Chars($Value, 2)
+'@)]
+        [eHelpNotes('The index is zero-based')]
+        [eHelpLink('')]
         static [char] Chars([eString] $Value, [int] $Index) {
             if ($Index -lt 0 -or $Index -ge $Value.Value.Length) {
                 throw [System.ArgumentOutOfRangeException]::new("index", "Index must be within the bounds of the string.")
@@ -219,15 +481,48 @@ Creates a new eString object with the value of the eString object $eStr
         #--------------------------------------------
         #region Contains
         #--------------------------------------------
-        # Determines if the current string contains a search value
+        [eHelpSynopsis('Determines if the current string contains a value')]
+        [eHelpDescription('Determines if the current string contains a value')]
+        [eHelpParameter('Value', 'The value to search for',[string])]
+        [eHelpOutputs('[bool]')]
+        [eHelpExample(@'
+$Value = [eString]::new('Hello, World!')
+$Value.Contains('World')
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         [bool] Contains([string] $Value) {
             return $this.Value.Contains($Value)
         }
 
+
+        [eHelpSynopsis('Determines if the specified string contains a value')]
+        [eHelpDescription('STATIC Overloaded method for the Contains method. Determines if the specified string contains a value')]
+        [eHelpParameter('Value', 'The string value to search',[string])]
+        [eHelpParameter('SearchValue', 'The value to search for',[string])]
+        [eHelpOutputs('[bool]')]
+        [eHelpExample(@'
+$Value = 'Hello, World!'
+[eString]::Contains($Value, 'World')
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         static [bool] Contains([string] $Value, [string] $SearchValue) {
             return $Value.Contains($SearchValue)
         }
 
+
+        [eHelpSynopsis('Determines if the specified eString contains a value')]
+        [eHelpDescription('STATIC Overloaded method for the Contains method. Determines if the specified eString contains a value')]
+        [eHelpParameter('Value', 'The eString value to search',[eString])]
+        [eHelpParameter('SearchValue', 'The value to search for',[string])]
+        [eHelpOutputs('[bool]')]
+        [eHelpExample(@'
+$Value = [eString]::new('Hello, World!')
+[eString]::Contains($Value, 'World')
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         static [bool] Contains([eString] $Value, [string] $SearchValue) {
             return $Value.Value.Contains($SearchValue)
         }
@@ -236,15 +531,45 @@ Creates a new eString object with the value of the eString object $eStr
         #--------------------------------------------
         #region ConvertToComment
         #--------------------------------------------
-        # Converts the current string to a powershell comment
+        [eHelpSynopsis('Converts the current string to a powershell comment')]
+        [eHelpDescription('Converts the current string to a powershell comment')]
+        [eHelpOutputs('[eString]')]
+        [eHelpExample(@'
+$Value = [eString]::new('Hello, World!')
+$Value.ConvertToComment()
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         [eString] ConvertToComment() {
             return [eString]::ConvertToComment($this.Value)
         }
 
+
+        [eHelpSynopsis('Converts the specified string to a powershell comment')]
+        [eHelpDescription('STATIC Overloaded method for the ConvertToComment method. Converts the specified string to a powershell comment')]
+        [eHelpParameter('Value', 'The string value to convert',[string])]
+        [eHelpOutputs('[eString]')]
+        [eHelpExample(@'
+$Value = 'Hello, World!'
+[eString]::ConvertToComment($Value)
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         static [eString] ConvertToComment([string] $Value) {
             return [eString]::new(($Value -split "`n" | ForEach-Object {"#$_"}) -join "`n")
         }
 
+
+        [eHelpSynopsis('Converts the specified eString to a powershell comment')]
+        [eHelpDescription('STATIC Overloaded method for the ConvertToComment method. Converts the specified eString to a powershell comment')]
+        [eHelpParameter('Value', 'The eString value to convert',[eString])]
+        [eHelpOutputs('[eString]')]
+        [eHelpExample(@'
+$Value = [eString]::new('Hello, World!')
+[eString]::ConvertToComment($Value)
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         static [eString] ConvertToComment([eString] $Value) {
             return [eString]::ConvertToComment($Value.Value)
         }
@@ -253,15 +578,48 @@ Creates a new eString object with the value of the eString object $eStr
         #--------------------------------------------
         #region EndsWith
         #--------------------------------------------
-        # Determines if the current string ends with a value
+        [eHelpSynopsis('Determines if the current string ends with a value')]
+        [eHelpDescription('Determines if the current string ends with a value')]
+        [eHelpParameter('Value', 'The value to search for',[string])]
+        [eHelpOutputs('[bool]')]
+        [eHelpExample(@'
+$Value = [eString]::new('Hello, World!')
+$Value.EndsWith('World!')
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         [bool] EndsWith([string] $Value) {
             return $this.Value.EndsWith($Value)
         }
 
+
+        [eHelpSynopsis('Determines if the specified string ends with a value')]
+        [eHelpDescription('STATIC Overloaded method for the EndsWith method. Determines if the specified string ends with a value')]
+        [eHelpParameter('Value', 'The string value to search',[string])]
+        [eHelpParameter('SearchValue', 'The value to search for',[string])]
+        [eHelpOutputs('[bool]')]
+        [eHelpExample(@'
+$Value = 'Hello, World!'
+[eString]::EndsWith($Value, 'World!')
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         static [bool] EndsWith([string] $Value, [string] $SearchValue) {
             return $Value.EndsWith($SearchValue)
         }
 
+
+        [eHelpSynopsis('Determines if the specified eString ends with a value')]
+        [eHelpDescription('STATIC Overloaded method for the EndsWith method. Determines if the specified eString ends with a value')]
+        [eHelpParameter('Value', 'The eString value to search',[eString])]
+        [eHelpParameter('SearchValue', 'The value to search for',[string])]
+        [eHelpOutputs('[bool]')]
+        [eHelpExample(@'
+$Value = [eString]::new('Hello, World!')
+[eString]::EndsWith($Value, 'World!')
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         static [bool] EndsWith([eString] $Value, [string] $SearchValue) {
             return $Value.Value.EndsWith($SearchValue)
         }
@@ -270,32 +628,110 @@ Creates a new eString object with the value of the eString object $eStr
         #--------------------------------------------
         #region Equals
         #--------------------------------------------
-        # Determines if the current string is equal to a value
+        [eHelpSynopsis('Determines if the current string is equal to a value')]
+        [eHelpDescription('Determines if the current string is equal to a value')]
+        [eHelpParameter('Value', 'The value to compare',[string])]
+        [eHelpOutputs('[bool]')]
+        [eHelpExample(@'
+$Value = [eString]::new('Hello, World!')
+$Value.Equals('Hello, World!')
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         [bool] Equals([string] $Value) {
             return $this.Value.Equals($Value)
         }
 
+
+        [eHelpSynopsis('Determines if the specified string is equal to a value')]
+        [eHelpDescription('STATIC Overloaded method for the Equals method. Determines if the specified string is equal to a value')]
+        [eHelpParameter('Value', 'The string value to compare',[string])]
+        [eHelpParameter('SearchValue', 'The value to compare',[string])]
+        [eHelpOutputs('[bool]')]
+        [eHelpExample(@'
+$Value = 'Hello, World!'
+[eString]::Equals($Value, 'Hello, World!')
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         static [bool] Equals([string] $Value, [string] $SearchValue) {
             return $Value.Equals($SearchValue)
         }
 
+
+        [eHelpSynopsis('Determines if the specified eString is equal to a value')]
+        [eHelpDescription('STATIC Overloaded method for the Equals method. Determines if the specified eString is equal to a value')]
+        [eHelpParameter('Value', 'The eString value to compare',[eString])]
+        [eHelpParameter('SearchValue', 'The value to compare',[string])]
+        [eHelpOutputs('[bool]')]
+        [eHelpExample(@'
+$Value = [eString]::new('Hello, World!')
+[eString]::Equals($Value, 'Hello, World!')
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         static [bool] Equals([eString] $Value, [string] $SearchValue) {
             return $Value.Value.Equals($SearchValue)
+        }
+
+        [eHelpSynopsis('Determines if the specified eString is equal to a value')]
+        [eHelpDescription('STATIC Overloaded method for the Equals method. Determines if the specified eString is equal to an eString value')]
+        [eHelpParameter('Value', 'The eString value to compare',[eString])]
+        [eHelpParameter('SearchValue', 'The eString value to compare',[eString])]
+        [eHelpOutputs('[bool]')]
+        [eHelpExample(@'
+$Value = [eString]::new('Hello, World!')
+[eString]::Equals($Value, [eString]::new('Hello, World!'))
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
+        static [bool] Equals([eString] $Value, [eString] $SearchValue) {
+            return $Value.Value.Equals($SearchValue.Value)
         }
         #endregion
 
         #--------------------------------------------
         #region Length
         #--------------------------------------------
-        # Returns the length of the current string
+        [eHelpSynopsis('Returns the length of the current eString')]
+        [eHelpDescription('Returns the length of the current eString')]
+        [eHelpOutputs('[int]')]
+        [eHelpExample(@'
+$Value = [eString]::new('Hello, World!')
+$Value.Length()
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         [int] Length() {
             return $this.Value.Length            
         }
 
+
+        [eHelpSynopsis('Returns the length of the specified string')]
+        [eHelpDescription('STATIC Overloaded method for the Length method. Returns the length of the specified string')]
+        [eHelpParameter('Value', 'The string value to get the length of',[string])]
+        [eHelpOutputs('[int]')]
+        [eHelpExample(@'
+$Value = 'Hello, World!'
+[eString]::Length($Value)
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         static [int] Length([string] $Value) {
             return $Value.Length
         }
 
+
+        [eHelpSynopsis('Returns the length of the specified eString')]
+        [eHelpDescription('STATIC Overloaded method for the Length method. Returns the length of the specified eString')]
+        [eHelpParameter('Value', 'The eString value to get the length of',[eString])]
+        [eHelpOutputs('[int]')]
+        [eHelpExample(@'
+$Value = [eString]::new('Hello, World!')
+[eString]::Length($Value)
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         static [int] Length([eString] $Value) {
             return $Value.Value.Length
         }
@@ -304,27 +740,98 @@ Creates a new eString object with the value of the eString object $eStr
         #--------------------------------------------
         #region PadLeft
         #--------------------------------------------
-        # Pads the current string on the left
+        [eHelpSynopsis('Pads the current string on the left')]
+        [eHelpDescription('Pads the current string on the left')]
+        [eHelpParameter('TotalWidth', 'The total width of the string',[int])]
+        [eHelpOutputs('[eString]')]
+        [eHelpExample(@'
+$Value = [eString]::new('Hello, World!')
+$Value.PadLeft(20)
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         [eString] PadLeft([int] $TotalWidth) {
             return [eString]::PadLeft($this.Value, $TotalWidth, ' ')
         }
 
+
+        [eHelpSynopsis('Pads the current string on the left')]
+        [eHelpDescription('Overloaded method for the PadLeft method. Allows you to specify the padding character')]
+        [eHelpParameter('TotalWidth', 'The total width of the string',[int])]
+        [eHelpParameter('PaddingChar', 'The character to use for padding',[char])]
+        [eHelpOutputs('[eString]')]
+        [eHelpExample(@'
+$Value = [eString]::new('8675309')
+$Value.PadLeft(20, '0')
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         [eString] PadLeft([int] $TotalWidth, [char] $PaddingChar) {
             return [eString]::PadLeft($this.Value, $TotalWidth, $PaddingChar)
         }
 
+
+        [eHelpSynopsis('Pads the specified string on the left')]
+        [eHelpDescription('STATIC Overloaded method for the PadLeft method. Pads the specified string on the left')]
+        [eHelpParameter('Value', 'The string value to pad',[string])]
+        [eHelpParameter('TotalWidth', 'The total width of the string',[int])]
+        [eHelpOutputs('[eString]')]
+        [eHelpExample(@'
+$Value = 'Hello, World!'
+[eString]::PadLeft($Value, 20)
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         static [eString] PadLeft([string] $Value, [int] $TotalWidth) {
             return [eString]::PadLeft($Value, $TotalWidth, ' ')
         }
 
+
+        [eHelpSynopsis('Pads the specified string on the left')]
+        [eHelpDescription('STATIC Overloaded method for the PadLeft method. Allows you to specify the padding character')]
+        [eHelpParameter('Value', 'The string value to pad',[string])]
+        [eHelpParameter('TotalWidth', 'The total width of the string',[int])]
+        [eHelpParameter('PaddingChar', 'The character to use for padding',[char])]
+        [eHelpOutputs('[eString]')]
+        [eHelpExample(@'
+$Value = '8675309'
+[eString]::PadLeft($Value, 20, '0')
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         static [eString] PadLeft([string] $Value, [int] $TotalWidth, [char] $PaddingChar) {
             return [eString]::new($Value.PadLeft($TotalWidth, $PaddingChar))
         }
 
+
+        [eHelpSynopsis('Pads the specified eString on the left')]
+        [eHelpDescription('STATIC Overloaded method for the PadLeft method. Pads the specified eString on the left')]
+        [eHelpParameter('Value', 'The eString value to pad',[eString])]
+        [eHelpParameter('TotalWidth', 'The total width of the string',[int])]
+        [eHelpOutputs('[eString]')]
+        [eHelpExample(@'
+$Value = [eString]::new('Hello, World!')
+[eString]::PadLeft($Value, 20)
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         static [eString] PadLeft([eString] $Value, [int] $TotalWidth) {
             return [eString]::PadLeft($Value.Value, $TotalWidth, ' ')
         }
 
+
+        [eHelpSynopsis('Pads the specified eString on the left')]
+        [eHelpDescription('STATIC Overloaded method for the PadLeft method. Allows you to specify the padding character')]
+        [eHelpParameter('Value', 'The eString value to pad',[eString])]
+        [eHelpParameter('TotalWidth', 'The total width of the string',[int])]
+        [eHelpParameter('PaddingChar', 'The character to use for padding',[char])]
+        [eHelpOutputs('[eString]')]
+        [eHelpExample(@'
+$Value = [eString]::new('8675309')
+[eString]::PadLeft($Value, 20, '0')
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         static [eString] PadLeft([eString] $Value, [int] $TotalWidth, [char] $PaddingChar) {
             return [eString]::PadLeft($Value.Value, $TotalWidth, $PaddingChar)
         }
@@ -333,27 +840,98 @@ Creates a new eString object with the value of the eString object $eStr
         #--------------------------------------------
         #region PadRight
         #--------------------------------------------
-        # Pads the current string on the right
+        [eHelpSynopsis('Pads the current string on the right')]
+        [eHelpDescription('Pads the current string on the right')]
+        [eHelpParameter('TotalWidth', 'The total width of the string',[int])]
+        [eHelpOutputs('[eString]')]
+        [eHelpExample(@'
+$Value = [eString]::new('Hello, World!')
+$Value.PadRight(20)
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         [eString] PadRight([int] $TotalWidth) {
             return [eString]::PadRight($this.Value, $TotalWidth, ' ')
         }
 
+
+        [eHelpSynopsis('Pads the current string on the right')]
+        [eHelpDescription('Overloaded method for the PadRight method. Allows you to specify the padding character')]
+        [eHelpParameter('TotalWidth', 'The total width of the string',[int])]
+        [eHelpParameter('PaddingChar', 'The character to use for padding',[char])]
+        [eHelpOutputs('[eString]')]
+        [eHelpExample(@'
+$Value = [eString]::new('0.8675309')
+$Value.PadRight(20, '0')
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         [eString] PadRight([int] $TotalWidth, [char] $PaddingChar) {
             return [eString]::PadRight($this.Value, $TotalWidth, $PaddingChar)
         }
 
+
+        [eHelpSynopsis('Pads the specified string on the right')]
+        [eHelpDescription('STATIC Overloaded method for the PadRight method. Pads the specified string on the right')]
+        [eHelpParameter('Value', 'The string value to pad',[string])]
+        [eHelpParameter('TotalWidth', 'The total width of the string',[int])]
+        [eHelpOutputs('[eString]')]
+        [eHelpExample(@'
+$Value = 'Hello, World!'
+[eString]::PadRight($Value, 20)
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         static [eString] PadRight([string] $Value, [int] $TotalWidth) {
             return [eString]::PadRight($Value, $TotalWidth, ' ')
         }
 
+
+        [eHelpSynopsis('Pads the specified string on the right')]
+        [eHelpDescription('STATIC Overloaded method for the PadRight method. Allows you to specify the padding character')]
+        [eHelpParameter('Value', 'The string value to pad',[string])]
+        [eHelpParameter('TotalWidth', 'The total width of the string',[int])]
+        [eHelpParameter('PaddingChar', 'The character to use for padding',[char])]
+        [eHelpOutputs('[eString]')]
+        [eHelpExample(@'
+$Value = '0.8675309'
+[eString]::PadRight($Value, 20, '0')
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         static [eString] PadRight([string] $Value, [int] $TotalWidth, [char] $PaddingChar) {
             return [eString]::new($Value.PadRight($TotalWidth, $PaddingChar))
         }
 
+
+        [eHelpSynopsis('Pads the specified eString on the right')]
+        [eHelpDescription('STATIC Overloaded method for the PadRight method. Pads the specified eString on the right')]
+        [eHelpParameter('Value', 'The eString value to pad',[eString])]
+        [eHelpParameter('TotalWidth', 'The total width of the string',[int])]
+        [eHelpOutputs('[eString]')]
+        [eHelpExample(@'
+$Value = [eString]::new('Hello, World!')
+[eString]::PadRight($Value, 20)
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         static [eString] PadRight([eString] $Value, [int] $TotalWidth) {
             return [eString]::PadRight($Value.Value, $TotalWidth, ' ')
         }
 
+
+        [eHelpSynopsis('Pads the specified eString on the right')]
+        [eHelpDescription('STATIC Overloaded method for the PadRight method. Allows you to specify the padding character')]
+        [eHelpParameter('Value', 'The eString value to pad',[eString])]
+        [eHelpParameter('TotalWidth', 'The total width of the string',[int])]
+        [eHelpParameter('PaddingChar', 'The character to use for padding',[char])]
+        [eHelpOutputs('[eString]')]
+        [eHelpExample(@'
+$Value = [eString]::new('0.8675309')
+[eString]::PadRight($Value, 20, '0')
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         static [eString] PadRight([eString] $Value, [int] $TotalWidth, [char] $PaddingChar) {
             return [eString]::PadRight($Value.Value, $TotalWidth, $PaddingChar)
         }
@@ -362,27 +940,98 @@ Creates a new eString object with the value of the eString object $eStr
         #--------------------------------------------
         #region Remove
         #--------------------------------------------
-        # Removes a specified number of characters from the current string
+        [eHelpSynopsis('Removes characters from the current string at the specified index')]
+        [eHelpDescription('Removes characters from the current string at the specified index')]
+        [eHelpParameter('StartIndex', 'The index to start removing characters from',[int])]
+        [eHelpOutputs('[eString]')]
+        [eHelpExample(@'
+$Value = [eString]::new('Hello, World!')
+$Value.Remove(7)
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         [eString] Remove([int] $StartIndex) {
             return [eString]::Remove($this.Value, $StartIndex)
         }
 
+
+        [eHelpSynopsis('Removes a specified number of characters from middle of the current string')]
+        [eHelpDescription('Removes a specified number of characters from the middle of current string')]
+        [eHelpParameter('StartIndex', 'The index to start removing characters from',[int])]
+        [eHelpParameter('Count', 'The number of characters to remove',[int])]
+        [eHelpOutputs('[eString]')]
+        [eHelpExample(@'
+$Value = [eString]::new('Hello, World!')
+$Value.Remove(7, 6)
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         [eString] Remove([int] $StartIndex, [int] $Count) {
             return [eString]::Remove($this.Value, $StartIndex, $Count)
         }
 
+
+        [eHelpSynopsis('Removes characters from the specified string at the specified index')]
+        [eHelpDescription('STATIC Overloaded method for the Remove method. Removes characters from the specified string at the specified index')]
+        [eHelpParameter('Value', 'The string value to remove characters from',[string])]
+        [eHelpParameter('StartIndex', 'The index to start removing characters from',[int])]
+        [eHelpOutputs('[eString]')]
+        [eHelpExample(@'
+$Value = 'Hello, World!'
+[eString]::Remove($Value, 7)
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         static [eString] Remove([string] $Value, [int] $StartIndex) {
             return [eString]::new($Value.Remove($StartIndex))
         }
 
+
+        [eHelpSynopsis('Removes a specified number of characters from the specified string')]
+        [eHelpDescription('STATIC Overloaded method for the Remove method. Removes a specified number of characters from the specified string')]
+        [eHelpParameter('Value', 'The string value to remove characters from',[string])]
+        [eHelpParameter('StartIndex', 'The index to start removing characters from',[int])]
+        [eHelpParameter('Count', 'The number of characters to remove',[int])]
+        [eHelpOutputs('[eString]')]
+        [eHelpExample(@'
+$Value = 'Hello, World!'
+[eString]::Remove($Value, 7, 6)
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         static [eString] Remove([string] $Value, [int] $StartIndex, [int] $Count) {
             return [eString]::new($Value.Remove($StartIndex, $Count))
         }
 
+
+        [eHelpSynopsis('Removes characters from the specified eString at the specified index')]
+        [eHelpDescription('STATIC Overloaded method for the Remove method. Removes characters from the specified eString at the specified index')]
+        [eHelpParameter('Value', 'The eString value to remove characters from',[eString])]
+        [eHelpParameter('StartIndex', 'The index to start removing characters from',[int])]
+        [eHelpOutputs('[eString]')]
+        [eHelpExample(@'
+$Value = [eString]::new('Hello, World!')
+[eString]::Remove($Value, 7)
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         static [eString] Remove([eString] $Value, [int] $StartIndex) {
             return [eString]::Remove($Value.Value, $StartIndex)
         }
 
+
+        [eHelpSynopsis('Removes a specified number of characters from the specified eString')]
+        [eHelpDescription('STATIC Overloaded method for the Remove method. Removes a specified number of characters from the specified eString')]
+        [eHelpParameter('Value', 'The eString value to remove characters from',[eString])]
+        [eHelpParameter('StartIndex', 'The index to start removing characters from',[int])]
+        [eHelpParameter('Count', 'The number of characters to remove',[int])]
+        [eHelpOutputs('[eString]')]
+        [eHelpExample(@'
+$Value = [eString]::new('Hello, World!')
+[eString]::Remove($Value, 7, 6)
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         static [eString] Remove([eString] $Value, [int] $StartIndex, [int] $Count) {
             return [eString]::Remove($Value.Value, $StartIndex, $Count)
         }
@@ -391,15 +1040,51 @@ Creates a new eString object with the value of the eString object $eStr
         #--------------------------------------------
         #region Replace
         #--------------------------------------------
-        # Replaces a specified value in the current string
+        [eHelpSynopsis('Replaces a value in the current string')]
+        [eHelpDescription('Replaces a value in the current string')]
+        [eHelpParameter('OldValue', 'The value to replace',[string])]
+        [eHelpParameter('NewValue', 'The value to replace with',[string])]
+        [eHelpOutputs('[eString]')]
+        [eHelpExample(@'
+$Value = [eString]::new('Hello, World!')
+$Value.Replace('World', 'Universe')
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         [eString] Replace([string] $OldValue, [string] $NewValue) {
             return [eString]::Replace($this.Value, $OldValue, $NewValue)
         }
 
+
+        [eHelpSynopsis('Replaces a value in the specified string')]
+        [eHelpDescription('STATIC Overloaded method for the Replace method. Replaces a value in the specified string')]
+        [eHelpParameter('Value', 'The string value to search',[string])]
+        [eHelpParameter('OldValue', 'The value to replace',[string])]
+        [eHelpParameter('NewValue', 'The value to replace with',[string])]
+        [eHelpOutputs('[eString]')]
+        [eHelpExample(@'
+$Value = 'Hello, World!'
+[eString]::Replace($Value, 'World', 'Universe')
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         static [eString] Replace([string] $Value, [string] $OldValue, [string] $NewValue) {
             return [eString]::new($Value.Replace($OldValue, $NewValue))
         }
 
+
+        [eHelpSynopsis('Replaces a value in the specified eString')]
+        [eHelpDescription('STATIC Overloaded method for the Replace method. Replaces a value in the specified eString')]
+        [eHelpParameter('Value', 'The eString value to search',[eString])]
+        [eHelpParameter('OldValue', 'The value to replace',[string])]
+        [eHelpParameter('NewValue', 'The value to replace with',[string])]
+        [eHelpOutputs('[eString]')]
+        [eHelpExample(@'
+$Value = [eString]::new('Hello, World!')
+[eString]::Replace($Value, 'World', 'Universe')
+'@)]
+        [eHelpNotes('')]
+        [eHelpLink('')]
         static [eString] Replace([eString] $Value, [string] $OldValue, [string] $NewValue) {
             return [eString]::Replace($Value.Value, $OldValue, $NewValue)
         }
@@ -652,6 +1337,10 @@ Creates a new eString object with the value of the eString object $eStr
     }
     #endregion 
 
+    #--------------------------------------------
+    #region class eLineBuilder
+    #--------------------------------------------
+    # Utility class to generate lines of various types like separators, dividers, etc.
     class eLineBuilder {
         # Utility class to generate lines of various types like separators, dividers, etc.
 
@@ -1276,7 +1965,34 @@ Creates a new eString object with the value of the eString object $eStr
         #endregion
 
     }
+    #endregion
 
+    #--------------------------------------------
+    #region eBlock
+    #--------------------------------------------
+    # Class to generate nested block lines for formatting/separation, etc.
+    #
+#    PS D:\OneDrive - 1E\Documents\PowerShell\Modules> $blk = [eBlock]::new()
+#    PS D:\OneDrive - 1E\Documents\PowerShell\Modules> $blk.GetBlockLine(1,'Top','CLASS DEFINITION')
+#    
+#    ████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████
+#    ██ CLASS DEFINITION                                                                                                   ██
+#    PS D:\OneDrive - 1E\Documents\PowerShell\Modules> $blk.GetBlockLine(2,'Top','PROPERTIES')      
+#    
+#        ╔═══PROPERTIES═══════════════════════════════════════════════════════════════════════════════════════════════════╗
+#    PS D:\OneDrive - 1E\Documents\PowerShell\Modules> $blk.GetBlockLine(3,'Top','Value')      
+#    
+#            ┏━━━Value━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+#    PS D:\OneDrive - 1E\Documents\PowerShell\Modules> $blk.GetBlockLine(3,'Bottom','Value')
+#    
+#            ┗━━━Value━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+#    PS D:\OneDrive - 1E\Documents\PowerShell\Modules> $blk.GetBlockLine(2,'Bottom','PROPERTIES')
+#    
+#        ╚═══PROPERTIES═══════════════════════════════════════════════════════════════════════════════════════════════════╝
+#    PS D:\OneDrive - 1E\Documents\PowerShell\Modules> $blk.GetBlockLine(1,'Bottom','CLASS DEFINITION')
+#    
+#    ██ CLASS DEFINITION                                                                                                   ██
+#    ████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████    
     class eBlock {
         #region Properties
         [int] $BlockWidth
@@ -1403,207 +2119,7 @@ Creates a new eString object with the value of the eString object $eStr
 
         #endregion
     }
-
-    class eHelp {
-        # This class is used to get help documentation for a class
-        static [eString] GetHelp([object] $target) {
-
-            $sb = [System.Text.StringBuilder]::new()
-            $type = $target.GetType()
-            # Create a new block object for formatting the help output into pretty nested line blocks. 
-            $blk = [eBlock]::new(120, 2, [eNewlineAdd]::Before) # 120 characters wide at the most, 2 spaces of indentation, and a newline before each block for spacing
-
-            # BindingFlags to specify that you only want items declared in the class itself
-            $bindingFlags = [System.Reflection.BindingFlags]::Public -bor [System.Reflection.BindingFlags]::NonPublic -bor [System.Reflection.BindingFlags]::Instance -bor [System.Reflection.BindingFlags]::DeclaredOnly
-
-            # Get the documentation for the class
-            [void]$sb.AppendLine($blk.GetBlockLine(1,'Top', $type.Name))
-            [void]$sb.AppendLine($blk.GetBlockLine(2,'Top','CLASS DOCUMENTATION'))
-            $Attributes = $type.GetCustomAttributes($true)
-            foreach ($Attribute in $Attributes) {
-                #[void]$sb.AppendLine("`n$(Add-Indentation $Attribute.ToString() -IndentSize 4)")
-                [void]$sb.AppendLine([eString]::new($Attribute.ToString()).AddIndent(4).AddNewLine([eNewlineAdd]::Before))
-            }
-            [void]$sb.AppendLine($blk.GetBlockLine(2,'Bottom','CLASS DOCUMENTATION'))
-
-            # Get the documentation for the class's properties
-            [void]$sb.AppendLine($blk.GetBlockLine(2,'Top','CLASS PROPERTIES'))
-            $Properties = $type.GetProperties()
-            foreach ($Property in $Properties) {
-                $Attributes = $Property.GetCustomAttributes($true)
-                foreach ($Attribute in $Attributes) {
-                    #[void]$sb.AppendLine("`n$(Add-Indentation $Attribute.ToString() -IndentSize 4)")
-                    [void]$sb.AppendLine([eString]::new($Attribute.ToString()).AddIndent(4).AddNewLine([eNewlineAdd]::Before))
-                }
-            }
-            [void]$sb.AppendLine($blk.GetBlockLine(2,'Bottom','CLASS PROPERTIES'))
-
-            # Get the documentation for the class's methods
-            [void]$sb.AppendLine($blk.GetBlockLine(2,'Top','CLASS METHODS'))
-            $Methods = $type.GetMethods($bindingFlags)
-            foreach ($Method in $Methods) {
-                $Attributes = $Method.GetCustomAttributes($true)
-                if ($Attributes.Count -gt 0) {
-                    #[void]$sb.AppendLine((New-Separator -Type SingleTop -Length 74 -Name $Method.Name -NewLineBefore -IndentSize 4))
-                    [void]$sb.AppendLine($blk.GetBlockLine(3,'Top',$Method.Name))
-                    foreach ($Attribute in $Attributes) {
-                        #[void]$sb.AppendLine("`n$(Add-Indentation $Attribute.ToString() -IndentSize 6)")
-                        [void]$sb.AppendLine([eString]::new($Attribute.ToString()).AddIndent(6).AddNewLine([eNewlineAdd]::Before))
-                    }
-                    #[void]$sb.AppendLine((New-Separator -Type SingleBottom -Length 74 -Name $Method.Name -NewLineBefore -IndentSize 4))
-                    [void]$sb.AppendLine($blk.GetBlockLine(3,'Bottom',$Method.Name))
-                }
-            }
-            [void]$sb.AppendLine($blk.GetBlockLine(2,'Bottom','CLASS METHODS'))
-            [void]$sb.AppendLine($blk.GetBlockLine(1,'Bottom', $type.Name))
-
-            return [eString]::new($sb.ToString())
-        }
-    }    
-
-    class eEncryption {
-        # Class to handle hashing/encryption of strings
-
-        static [string] AES([byte[]] $Key, [byte[]] $IV, [string] $String) {
-            $aes = [System.Security.Cryptography.Aes]::Create()
-            try {
-                # Directly use the Key and IV byte arrays without conversion.
-                $aes.Key = $Key
-                $aes.IV = $IV
-        
-                if ($aes.Key.Length -notin @(16, 24, 32)) {
-                    throw "Key size is not valid. Key must be 128, 192, or 256 bits (16, 24, 32 bytes)"
-                }
-        
-                if ($aes.IV.Length -ne 16) {
-                    throw "IV size is not valid. IV must be 128 bits (16 bytes)"
-                }
-        
-                $encryptor = $aes.CreateEncryptor($aes.Key, $aes.IV)
-                $ms = [System.IO.MemoryStream]::new()
-                $cs = [System.Security.Cryptography.CryptoStream]::new($ms, $encryptor, [System.Security.Cryptography.CryptoStreamMode]::Write)
-                $sw = [System.IO.StreamWriter]::new($cs)
-        
-                $sw.Write($String)
-                $sw.Dispose()
-                $cs.Dispose()
-                $ms.Close()
-        
-                return [Convert]::ToBase64String($ms.ToArray())
-            } finally {
-                # Properly dispose of AES to free resources.
-                if ($null -ne $aes) {
-                    $aes.Dispose()
-                }
-            }
-        }
-
-        static [string] AESDecrypt([byte[]] $Key, [byte[]] $IV, [string] $String) {
-            $aes = [System.Security.Cryptography.Aes]::Create()
-            $aes.Key = $Key
-            $aes.IV = $IV
-            $decryptor = $aes.CreateDecryptor($aes.Key, $aes.IV)
-            $ms = [System.IO.MemoryStream]::new([Convert]::FromBase64String($String))
-            $cs = [System.Security.Cryptography.CryptoStream]::new($ms, $decryptor, [System.Security.Cryptography.CryptoStreamMode]::Read)
-            $sr = [System.IO.StreamReader]::new($cs)
-            $result = $sr.ReadToEnd()
-            $sr.Close()
-            $cs.Close()
-            $ms.Close()
-            return $result
-        }
-
-        static [string] MD5([string] $String) {
-            $md5 = [System.Security.Cryptography.MD5]::Create()
-            try {
-                $hash = [System.BitConverter]::ToString($md5.ComputeHash([eEncoding]::Encoding.GetBytes($String ?? ''))).Replace('-','')
-            }
-            catch {
-                $hash = 'D41D8CD98F00B204E9800998ECF8427E'
-            }
-            finally {
-                $md5.Dispose()
-            }
-            return $hash
-        }
-
-        static [byte[]] RandomBytes([int]$Length) {
-            $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
-            try {
-                $randomBytes = New-Object byte[] $Length
-                $rng.GetBytes($randomBytes)
-                return $randomBytes
-            } finally {
-                if ($null -ne $rng) {
-                    $rng.Dispose()
-                }
-            }
-        }
-
-        static [string] RandomString([int] $Length) {        
-            $randomBytes = New-Object byte[] $Length
-            $rng = [System.Security.Cryptography.RNGCryptoServiceProvider]::new()
-            $rng.GetBytes($randomBytes)
-            $randomString = [System.BitConverter]::ToString($randomBytes).Replace("-", "").Substring(0, $Length)
-            return $randomString
-        }
-        
-        static [string] SHA1([string] $String) {
-            $sha1 = [System.Security.Cryptography.SHA1]::Create()
-            try {
-                $hash = [System.BitConverter]::ToString($sha1.ComputeHash([eEncoding]::Encoding.GetBytes($String ?? ''))).Replace('-','')
-            }
-            catch {
-                $hash = 'DA39A3EE5E6B4B0D3255BFEF95601890AFD80709'
-            }
-            finally {
-                $sha1.Dispose()
-            }
-            return $hash
-        }
-
-        static [string] SHA256([string] $String) {
-            $sha256 = [System.Security.Cryptography.SHA256]::Create()
-            try {
-                $hash = [System.BitConverter]::ToString($sha256.ComputeHash([eEncoding]::Encoding.GetBytes($String ?? ''))).Replace('-','')
-            }
-            catch {
-                $hash = 'E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855'
-            }
-            finally {
-                $sha256.Dispose()
-            }
-            return $hash
-        }
-
-        static [string] SHA384([string] $String) {
-            $sha384 = [System.Security.Cryptography.SHA384]::Create()
-            try {
-                $hash = [System.BitConverter]::ToString($sha384.ComputeHash([eEncoding]::Encoding.GetBytes($String ?? ''))).Replace('-','')
-            }
-            catch {
-                $hash = '38B060A751AC96384CD9327EB1B1E36A21FDB71114BE07434C0CC7BF63F6E1DA274EDEBFE76F65FBD51AD2F14898B95B'
-            }
-            finally {
-                $sha384.Dispose()
-            }
-            return $hash
-        }
-
-        static [string] SHA512([string] $String) {
-            $sha512 = [System.Security.Cryptography.SHA512]::Create()
-            try {
-                $hash = [System.BitConverter]::ToString($sha512.ComputeHash([eEncoding]::Encoding.GetBytes($String ?? ''))).Replace('-','')
-            }
-            catch {
-                $hash = 'CF83E1357EEFB8BDF1542850D66D8007D620E4050B5715DC83F4A921D36CE9CE47D0D13C5D85F2B0FF8318D2877EEC2F63B931BD47417A81A538327AF927DA3E'
-            }
-            finally {
-                $sha512.Dispose()
-            }
-            return $hash
-        }
-    }    
+    #endregion
 
     class eVersion {
         [System.Version] $Version
@@ -1733,6 +2249,105 @@ Creates a new eString object with the value of the eString object $eStr
         [eVersion] Increment() {
             return [eVersion]::new($this.Version.Major, $this.Version.Minor, $this.Version.Build, $this.Version.Revision + 1)
         }
-    }        
+    }  
+
+    class eHelp {
+        static [System.Reflection.BindingFlags] $BindingFlags = `
+            [System.Reflection.BindingFlags]::Public -bor `
+            [System.Reflection.BindingFlags]::NonPublic -bor `
+            [System.Reflection.BindingFlags]::Instance -bor `
+            [System.Reflection.BindingFlags]::Static -bor `
+            [System.Reflection.BindingFlags]::DeclaredOnly
+
+        # This class is used to get help documentation for a class
+        static [eString] GetHelp([object] $target) {
+            if ($target -is [type]) {
+                return [eHelp]::ProcessType($target, [eHelp]::BindingFlags)
+            }
+            else {
+                return [eHelp]::ProcessType($target.GetType(), [eHelp]::BindingFlags)
+            }
+        }
+
+        static [eString] GetHelp([object] $target, [System.Reflection.BindingFlags] $bindingFlags) {
+            return [eHelp]::ProcessType($target, $bindingFlags)
+        }
+
+        hidden static [string] ProcessType ([type] $type, [System.Reflection.BindingFlags] $bindingFlags = [eHelp]::BindingFlags) {
+            $sb = [System.Text.StringBuilder]::new()
+            $blk = [eBlock]::new(120, 2, [eNewlineAdd]::Before)
+
+            [void]$sb.AppendLine($blk.GetBlockLine(1,'Top', $type.Name))
+            [void]$sb.AppendLine($blk.GetBlockLine(2,'Top','CLASS DOCUMENTATION'))
+            $Attributes = $type.GetCustomAttributes($true)
+            foreach ($Attribute in $Attributes) {
+                [void]$sb.AppendLine([eString]::new($Attribute.ToString()).AddIndent(4).AddNewLine([eNewlineAdd]::Before))
+            }
+            [void]$sb.AppendLine($blk.GetBlockLine(2,'Bottom','CLASS DOCUMENTATION'))
+
+            [void]$sb.AppendLine($blk.GetBlockLine(2,'Top','CLASS PROPERTIES'))
+            $Properties = $type.GetProperties()
+            $getSetList = $Properties | ForEach-Object{"get_$($_.Name)";"set_$($_.Name)"}
+            foreach ($Property in $Properties) {
+                [void]$sb.AppendLine($blk.GetBlockLine(3,'Top',$Property.Name))
+                $Attributes = $Property.GetCustomAttributes($true)
+                if ([string]::IsNullOrEmpty($Attributes)) {
+                    [void]$sb.AppendLine([eString]::new(".PROPERTY " + $Property.Name + '[' + $Property.PropertyType + ']').AddIndent(6).AddNewLine([eNewlineAdd]::Before)) # Append property type
+                }
+                foreach ($Attribute in $Attributes) {
+                    [void]$sb.AppendLine([eString]::new($Attribute.ToString()).AddIndent(6).AddNewLine([eNewlineAdd]::Before))
+                }
+                [void]$sb.AppendLine($blk.GetBlockLine(3,'Bottom',$Property.Name))
+            }
+            [void]$sb.AppendLine($blk.GetBlockLine(2,'Bottom','CLASS PROPERTIES'))
+    
+
+            [void]$sb.AppendLine($blk.GetBlockLine(2,'Top','CLASS METHODS'))
+            $Methods = $type.GetMethods($bindingFlags) | Where-Object { $getSetList -notcontains $_.Name }
+            foreach ($Method in $Methods) {
+                [void]$sb.AppendLine($blk.GetBlockLine(3,'Top',$Method.Name))
+                $Attributes = $Method.GetCustomAttributes($true)
+                foreach ($Attribute in $Attributes) {
+                    [void]$sb.AppendLine([eString]::new($Attribute.ToString()).AddIndent(6).AddNewLine([eNewlineAdd]::Before))
+                }        
+                [void]$sb.AppendLine($blk.GetBlockLine(3,'Bottom',$Method.Name))
+            }
+            [void]$sb.AppendLine($blk.GetBlockLine(2,'Bottom','CLASS METHODS'))
+            [void]$sb.AppendLine($blk.GetBlockLine(1,'Bottom', $type.Name))
+
+            return $sb.ToString()
+        }
+    }
     #endregion
 #╚═══BASE═════════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+
+[eHelpSynopsis('Simple calculator class for basic arithmetic operations.')]
+[eHelpDescription('This class provides basic arithmetic operations such as addition.')]
+[eHelpNotes('This is a demo class for illustrating the use of eHelpAttributes for documentation.')]
+[eHelpLink('https://example.com/CalculatorHelp')]
+class Calculator {
+    [eHelpProperty('property1', 'This is a sample property.')]
+    [string] $property1
+
+    Calculator() {}
+
+    # Method to add two numbers with documentation
+    [eHelpSynopsis('Adds two numbers and returns the sum.')]
+    [eHelpDescription('This method takes two integers as input and returns their sum.')]
+    [eHelpParameter('num1', 'The first number to add.')]
+    [eHelpParameter('num2', 'The second number to add.')]
+    [eHelpExample(@'
+PS> $calc = [Calculator]::new()
+PS> $calc.Add(5, 4)
+9
+'@)]
+    [int] Add([int] $num1, [int] $num2) {
+        return $num1 + $num2
+    }
+
+    # Help method to get the help documentation for the class
+    [string] Help() {
+        return [eHelp]::GetHelp($this)
+    }
+}
+
