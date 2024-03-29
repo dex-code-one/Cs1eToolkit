@@ -1,31 +1,4 @@
 
-#╔═ DEFAULTS AND ESSENTIALS ════════════════════════════════════════════════════════════════════════════════════════════╗
-    #region
-
-    # This region contains the default values and essential functions that need to be defined first
-
-    class Defaults {
-        # This static class is used to hold default values for the module.  You don't need to instantiate this class.
-        # $encoding = [Defaults]::Encoding
-        # $indent = [Defaults]::Indent
-        # etc.
-        static [System.Text.Encoding] $Encoding = [System.Text.Encoding]::Unicode
-        static [string] $FieldSeparator = "`u{200B}`t"
-        static [string] $RecordSeparator = "`u{200B}`n"
-        static [string] $ZeroWidthSpace = "`u{200B}"
-        static [int] $Indent = 4
-        static [int] $ConsoleWidth = 120
-        static [LineStyle] $LineStyle = [LineStyle]::Heavy
-        static [int] $TextAlignment = [TextAlignment]::Left
-        static [int] $EncryptionKeySize = 256
-        static [int] $EncryptionIVSize = 128
-        static [int] $EncryptionIterations = 12345
-        static [string] $EncryptionSaltString = 'eToolkitSalt'
-    }
-
-    #endregion
-#╚════════════════════════════════════════════════════════════════════════════════════════════ DEFAULTS AND ESSENTIALS ═╝
-
 #╔═ CLASSES ════════════════════════════════════════════════════════════════════════════════════════════════════════════╗
     #region
     enum TextAlignment {
@@ -101,6 +74,29 @@
         static [string] $TopTee = '██'
         static [string] $BottomTee = '██'
         static [string] $Cross = '██'
+    }
+
+    class Defaults {
+        # This static class is used to hold default values for the module.  You don't need to instantiate this class.
+        # $encoding = [Defaults]::Encoding
+        # $indent = [Defaults]::Indent
+        # etc.
+        static [System.Text.Encoding] $Encoding = [System.Text.Encoding]::Unicode
+        static [string] $FieldSeparator = "`u{200B}`t"
+        static [string] $RecordSeparator = "`u{200B}`n"
+        static [string] $ZeroWidthSpace = "`u{200B}"
+        static [int] $Indent = 4
+        static [int] $ConsoleWidth = 120
+        static [LineStyle] $LineStyle = [LineStyle]::Double
+        static [int] $TextAlignment = [TextAlignment]::Left
+        static [int] $EncryptionKeySize = 256
+        static [int] $EncryptionIVSize = 128
+        static [int] $EncryptionIterations = 100000
+        static [int] $ObfuscationKeySize = 128
+        static [int] $ObfuscationIVSize = 128
+        static [int] $ObfuscationIterations = 1000
+        static [byte[]] $ObfuscationPasswordBytes = [Defaults]::Encoding.GetBytes('HppjmX3CBynZzbLIE8kLC/NRJ8Z5zLLF') # for insecurely encrypting (obfuscating) data without having to provide a password
+        static [byte[]] $ObfuscationSaltBytes = [Defaults]::Encoding.GetBytes('pMuEgynY8gIOe/NhLIFzWiZEn5oiKnSq') # for insecurely encrypting (obfuscating) data without having to provide a salt
     }
 
     class Draw {
@@ -261,13 +257,14 @@
         }
         #endregion
     }
-    class AesData {
+
+    class EncryptedData {
         # This class is used to hold the encrypted data, salt, and IV from the AES encryption process
         [string]$data
         [string]$salt
         [string]$iv
 
-        AesData ([string]$data, [string]$salt, [string]$iv) {
+        EncryptedData ([string]$data, [string]$salt, [string]$iv) {
             $this.data = $data
             $this.salt = $salt
             $this.iv = $iv
@@ -277,56 +274,26 @@
             return $this.data + [Defaults]::ZeroWidthSpace + $this.salt + [Defaults]::ZeroWidthSpace + $this.iv
         }
 
-        static [AesData] FromString([string]$AesDataString) {
-            $parts = $AesDataString.Split([Defaults]::ZeroWidthSpace)
-            return [AesData]::new($parts[0], $parts[1], $parts[2])
+        static [EncryptedData] FromString([string]$EncryptedDataString) {
+            $parts = $EncryptedDataString.Split([Defaults]::ZeroWidthSpace)
+            return [EncryptedData]::new($parts[0], $parts[1], $parts[2])
         }
 
         [byte[]] ToByteArray() {
             return [Defaults]::Encoding.GetBytes($this.ToString())
         }
 
-        static [AesData] FromByteArray([byte[]]$AesDataBytes) {
-            return [AesData]::FromString([Defaults]::Encoding.GetString($AesDataBytes))
+        static [EncryptedData] FromByteArray([byte[]]$EncryptedDataBytes) {
+            return [EncryptedData]::FromString([Defaults]::Encoding.GetString($EncryptedDataBytes))
         }
     }
 
     class Encryption {
-        #--------------------------------------------------------------
-        #region DecryptWithPassword
-        #--------------------------------------------------------------
-        static [System.Security.SecureString] DecryptWithPassword([AesData]$AesData, [System.Security.SecureString]$Password) {
-            $encryptedDataBytes = [Convert]::FromBase64String($AesData.data)
-            $saltBytes = [Convert]::FromBase64String($AesData.salt)
-            $ivBytes = [Convert]::FromBase64String($AesData.iv)
-            $passwordBytes = [Encryption]::SecureStringToByteArray($Password)
-            $ms = $null
-            $rdb = [System.Security.Cryptography.Rfc2898DeriveBytes]::new($passwordBytes, $saltBytes, [Defaults]::EncryptionIterations)
-            $aes = [System.Security.Cryptography.Aes]::Create()
-            try {
-                $aes.Key = $rdb.GetBytes([Defaults]::EncryptionKeySize / 8)
-                $aes.IV = $ivBytes
-                $ms = New-Object System.IO.MemoryStream
-                $cs = New-Object System.Security.Cryptography.CryptoStream $ms, $aes.CreateDecryptor(), 'Write'
-                try {
-                    $cs.Write($encryptedDataBytes, 0, $encryptedDataBytes.Length)
-                    $cs.FlushFinalBlock()
-                    $decryptedBytes = $ms.ToArray()
-                    $decryptedSecureString = [Encryption]::ByteArrayToSecureString($decryptedBytes)
-                    return $decryptedSecureString
-                } finally {
-                    $cs.Dispose()
-                }
-            } finally {
-                $aes.Dispose()
-                $ms.Dispose()
-                # Zero out the byte arrays after they're used
-                for ($i = 0; $i -lt $passwordBytes.Length; $i++) {$passwordBytes[$i] = 0}
-                for ($i = 0; $i -lt $encryptedDataBytes.Length; $i++) {$encryptedDataBytes[$i] = 0}
-            }
-        }
 
-        static [System.Security.SecureString] ByteArrayToSecureString([byte[]]$bytes) {
+        #--------------------------------------------------------------
+        #region ConvertByteArrayToSecureString
+        #--------------------------------------------------------------
+        static [System.Security.SecureString] ConvertByteArrayToSecureString([byte[]]$bytes) {
             $secureString = New-Object System.Security.SecureString
             for ($i = 0; $i -lt $bytes.Length; $i += 2) {
                 # Convert 2 bytes at a time to char and add to SecureString
@@ -340,47 +307,18 @@
         #endregion
 
         #--------------------------------------------------------------
-        #region EncryptWithPassword
+        #region ConvertPSCredentialToByteArray
         #--------------------------------------------------------------
-        static [AesData] EncryptWithPassword([System.Security.SecureString]$Data, [System.Security.SecureString]$Password) {
-            return [Encryption]::EncryptWithPassword($Data, $Password, [Defaults]::EncryptionSaltString)
+        static [byte[]] ConvertPSCredentialToByteArray([System.Management.Automation.PSCredential]$credential) {
+            # Safely converts a PSCredential to a byte array without ever exposing it in memory
+            return [Defaults]::Encoding.GetBytes($credential.UserName) + [Encryption]::ConvertSecureStringToByteArray($credential.Password)
         }
+        #endregion        
 
-        static [AesData] EncryptWithPassword([System.Security.SecureString]$Data, [System.Security.SecureString]$Password, [String]$SaltString) {
-            # Converts a SecureString to a byte array without ever exposing it in memory
-            $passwordBytes = [Encryption]::SecureStringToByteArray($Password)
-            $dataBytes = [Encryption]::SecureStringToByteArray($Data)
-        
-            # Initialize MemoryStream here
-            $ms = New-Object System.IO.MemoryStream
-            $AesData = $null
-        
-            # and then encrypts the data using the password and salt
-            $saltBytes = [Defaults]::Encoding.GetBytes($SaltString)
-            $rdb = [System.Security.Cryptography.Rfc2898DeriveBytes]::new($passwordBytes, $saltBytes, [Defaults]::EncryptionIterations)
-            $aes = [System.Security.Cryptography.Aes]::Create()
-            try {
-                $aes.Key = $rdb.GetBytes([Defaults]::EncryptionKeySize / 8)
-                $aes.IV = $rdb.GetBytes([Defaults]::EncryptionIVSize / 8)            
-                $cs = New-Object System.Security.Cryptography.CryptoStream $ms, $aes.CreateEncryptor(), 'Write'
-                try {
-                    $cs.Write($dataBytes, 0, $dataBytes.Length)
-                    $cs.FlushFinalBlock()
-                    $AesData = [AesData]::new([Convert]::ToBase64String($ms.ToArray()), [Convert]::ToBase64String($saltBytes), [Convert]::ToBase64String($aes.IV))
-                } finally {
-                    $cs.Dispose()
-                }
-            } finally {
-                $aes.Dispose()
-                $ms.Dispose()
-            }
-            # Zero out the byte arrays after they're used
-            for ($i = 0; $i -lt $passwordBytes.Length; $i++) {$passwordBytes[$i] = 0}
-            for ($i = 0; $i -lt $dataBytes.Length; $i++) {$dataBytes[$i] = 0}            
-            return $AesData
-        }
-
-        static [byte[]] SecureStringToByteArray([System.Security.SecureString]$secureString) {
+        #--------------------------------------------------------------
+        #region ConvertSecureStringToByteArray
+        #--------------------------------------------------------------
+        static [byte[]] ConvertSecureStringToByteArray([System.Security.SecureString]$secureString) {
             # Safely converts a SecureString to a byte array without ever exposing it in memory
             $bytes = $null
             if ($null -eq $secureString) {throw [System.ArgumentNullException]::new('secureString')}
@@ -395,21 +333,189 @@
                 [System.Runtime.InteropServices.Marshal]::ZeroFreeGlobalAllocUnicode($pointer)
             }
         }
+        #endregion
 
-        static [byte[]] PSCredentialToByteArray([System.Management.Automation.PSCredential]$credential) {
-            # Safely converts a PSCredential to a byte array without ever exposing it in memory
-            $credentialBytes = [Defaults]::Encoding.GetBytes($credential.UserName) + [Encryption]::SecureStringToByteArray($credential.Password)
-            return $credentialBytes
+        #--------------------------------------------------------------
+        #region DecryptByteArray
+        #--------------------------------------------------------------
+        static [byte[]] DecryptByteArray([EncryptedData]$encryptedData, [byte[]]$passwordBytes) {
+            $encryptedDataBytes = [Convert]::FromBase64String($encryptedData.data)
+            $saltBytes = [Convert]::FromBase64String($encryptedData.salt)
+            $ivBytes = [Convert]::FromBase64String($encryptedData.iv)
+            $ms = $null
+            $decryptedBytes = $null
+            $rdb = [System.Security.Cryptography.Rfc2898DeriveBytes]::new($passwordBytes, $saltBytes, [Defaults]::EncryptionIterations)
+            $aes = [System.Security.Cryptography.Aes]::Create()
+            try {
+                $aes.Key = $rdb.GetBytes([Defaults]::EncryptionKeySize / 8)
+                $aes.IV = $ivBytes
+                $ms = New-Object System.IO.MemoryStream
+                $cs = New-Object System.Security.Cryptography.CryptoStream $ms, $aes.CreateDecryptor(), 'Write'
+                try {
+                    $cs.Write($encryptedDataBytes, 0, $encryptedDataBytes.Length)
+                    $cs.FlushFinalBlock()
+                    $decryptedBytes = $ms.ToArray()
+                } finally {
+                    $cs.Dispose()
+                }
+            } finally {
+                #zero out the derived key and IV immediately
+                for ($i = 0; $i -lt $aes.Key.Length; $i++) {$aes.Key[$i] = 0}
+                for ($i = 0; $i -lt $aes.IV.Length; $i++) {$aes.IV[$i] = 0}
+                $aes.Dispose()
+                $ms.Dispose()
+            }
+            # Zero out the byte arrays after they're used
+            for ($i = 0; $i -lt $encryptedDataBytes.Length; $i++) {$encryptedDataBytes[$i] = 0}
+            for ($i = 0; $i -lt $saltBytes.Length; $i++) {$saltBytes[$i] = 0}
+            for ($i = 0; $i -lt $ivBytes.Length; $i++) {$ivBytes[$i] = 0}
+            return $decryptedBytes
+        }
+
+        # override for SecureString password
+        static [byte[]] DecryptByteArray([EncryptedData]$encryptedData, [System.Security.SecureString]$securePassword) {
+            return [Encryption]::DecryptByteArray($encryptedData, [Encryption]::ConvertSecureStringToByteArray($securePassword))
+        }
+
+        # override for string password
+        static [byte[]] DecryptByteArray([EncryptedData]$encryptedData, [string]$plainPass) {
+            return [Encryption]::DecryptByteArray($encryptedData, [Defaults]::Encoding.GetBytes($plainPass))
         }
         #endregion
+
+        #--------------------------------------------------------------
+        #region DecryptSecureString
+        #--------------------------------------------------------------
+        static [System.Security.SecureString] DecryptSecureString([EncryptedData]$encryptedData, [byte[]]$passwordBytes) {
+            $decryptedBytes = [Encryption]::DecryptByteArray($encryptedData, $passwordBytes)
+            try {
+                return [Encryption]::ConvertByteArrayToSecureString($decryptedBytes)
+            } finally {
+                # Zero out the decrypted array immediately
+                for ($i = 0; $i -lt $decryptedBytes.Length; $i++) {$decryptedBytes[$i] = 0}
+            }
+        }
+
+        # overload for SecureString password
+        static [System.Security.SecureString] DecryptSecureString([EncryptedData]$encryptedData, [System.Security.SecureString]$securePassword) {
+            return [Encryption]::DecryptSecureString($encryptedData, [Encryption]::ConvertSecureStringToByteArray($securePassword))
+        }
+
+        # overload for string password
+        static [System.Security.SecureString] DecryptSecureString([EncryptedData]$encryptedData, [string]$plainPass) {
+            $securePassword = New-Object System.Security.SecureString
+            for ($i=0; $i -lt $plainPass.Length; $i++) {$securePassword.AppendChar($plainPass[$i])}
+            return [Encryption]::DecryptSecureString($encryptedData, [Encryption]::ConvertSecureStringToByteArray($securePassword))
+        }
+        #endregion
+
+        #--------------------------------------------------------------
+        #region DecryptString
+        #--------------------------------------------------------------
+        static [string] DecryptString([EncryptedData]$encryptedData, [byte[]]$passwordBytes) {
+            $decryptedBytes = [Encryption]::DecryptByteArray($encryptedData, $passwordBytes)
+            try {
+                return [Defaults]::Encoding.GetString($decryptedBytes)
+            } finally {
+                # Zero out the decrypted array immediately
+                for ($i = 0; $i -lt $decryptedBytes.Length; $i++) {$decryptedBytes[$i] = 0}
+            }
+        }
+
+        # overload for SecureString password
+        static [string] DecryptString([EncryptedData]$encryptedData, [System.Security.SecureString]$securePassword) {
+            return [Encryption]::DecryptString($encryptedData, [Encryption]::ConvertSecureStringToByteArray($securePassword))
+        }
+
+        # overload for string password
+        static [string] DecryptString([EncryptedData]$encryptedData, [string]$plainPass) {
+            return [Encryption]::DecryptString($encryptedData, [Defaults]::Encoding.GetBytes($plainPass))
+        }
+        #endregion
+
+        #--------------------------------------------------------------
+        #region EncryptByteArray
+        #--------------------------------------------------------------
+        static [EncryptedData] EncryptByteArray([byte[]]$dataBytes, [byte[]]$passwordBytes, [byte[]]$saltBytes) {
+            # Initialize MemoryStream here
+            $ms = New-Object System.IO.MemoryStream
+            $EncryptedData = $null
+        
+            # and then encrypts the data using the password and salt
+            $rdb = [System.Security.Cryptography.Rfc2898DeriveBytes]::new($passwordBytes, $saltBytes, [Defaults]::EncryptionIterations)
+            $aes = [System.Security.Cryptography.Aes]::Create()
+            try {
+                $aes.Key = $rdb.GetBytes([Defaults]::EncryptionKeySize / 8)
+                $aes.IV = $rdb.GetBytes([Defaults]::EncryptionIVSize / 8)            
+                $cs = New-Object System.Security.Cryptography.CryptoStream $ms, $aes.CreateEncryptor(), 'Write'
+                try {
+                    $cs.Write($dataBytes, 0, $dataBytes.Length)
+                    $cs.FlushFinalBlock()
+                    $EncryptedData = [EncryptedData]::new([Convert]::ToBase64String($ms.ToArray()), [Convert]::ToBase64String($saltBytes), [Convert]::ToBase64String($aes.IV))
+                } finally {
+                    $cs.Dispose()
+                }
+            } finally {
+                #zero out the derived key and IV immediately
+                for ($i = 0; $i -lt $aes.Key.Length; $i++) {$aes.Key[$i] = 0}
+                for ($i = 0; $i -lt $aes.IV.Length; $i++) {$aes.IV[$i] = 0}
+                $aes.Dispose()
+                $ms.Dispose()
+            }
+            # Zero out the byte arrays immediately
+            for ($i = 0; $i -lt $passwordBytes.Length; $i++) {$passwordBytes[$i] = 0}
+            for ($i = 0; $i -lt $dataBytes.Length; $i++) {$dataBytes[$i] = 0}            
+            return $EncryptedData
+        }
+        #endregion
+
+        #--------------------------------------------------------------
+        #region EncryptSecureString
+        #--------------------------------------------------------------
+        static [EncryptedData] EncryptSecureString([byte[]]$secureBytes, [byte[]]$securePasswordBytes, [byte[]]$secureSaltBytes) {
+            return [Encryption]::EncryptByteArray($secureBytes, $securePasswordBytes, $secureSaltBytes)
+        }
+
+        # override for SecureString password and salt
+        static [EncryptedData] EncryptSecureString([System.Security.SecureString]$secureData, [System.Security.SecureString]$securePassword, [System.Security.SecureString]$secureSalt) {
+            return [Encryption]::EncryptByteArray([Encryption]::ConvertSecureStringToByteArray($secureData), [Encryption]::ConvertSecureStringToByteArray($securePassword), [Encryption]::ConvertSecureStringToByteArray($secureSalt))
+        }
+        #endregion
+
+        #--------------------------------------------------------------
+        #region EncryptString
+        #--------------------------------------------------------------
+        static [EncryptedData] EncryptString([byte[]]$plainBytes, [byte[]]$passwordBytes, [byte[]]$saltBytes) {
+            return [Encryption]::EncryptByteArray($plainBytes, $passwordBytes, $saltBytes)
+        }
+
+        # overload for SecureString password and salt
+        static [EncryptedData] EncryptString([string]$plainData, [System.Security.SecureString]$securePassword, [System.Security.SecureString]$secureSalt) {
+            return [Encryption]::EncryptByteArray([Defaults]::Encoding.GetBytes($plainData), [Encryption]::ConvertSecureStringToByteArray($securePassword), [Encryption]::ConvertSecureStringToByteArray($secureSalt))
+        }
+
+        # overload for string password and salt
+        static [EncryptedData] EncryptString([string]$plainData, [string]$plainPass, [string]$plainSalt) {
+            return [Encryption]::EncryptByteArray([Defaults]::Encoding.GetBytes($plainData), [Defaults]::Encoding.GetBytes($plainPass), [Defaults]::Encoding.GetBytes($plainSalt))
+        }
+        #endregion
+
+
     }
     #endregion
 #╚════════════════════════════════════════════════════════════════════════════════════════════════════════════ CLASSES ═╝
 
-#╔═ EXTEND STRING ══════════════════════════════════════════════════════════════════════════════════════════════════════╗
+#╔═ EXTEND String ══════════════════════════════════════════════════════════════════════════════════════════════════════╗
     #region
 
     # This section extends the System.String class with additional common properties and methods
+
+    # AESEncryptByteArray(SecureString $password, string $saltString)
+    ###################################################################################################################
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName AESEncryptWithPassword -Force -Value {
+        param([System.Security.SecureString] $password, [string] $saltString = [Defaults]::EncryptionSaltString)
+        [Encryption]::EncryptWithPassword($this, $password, $saltString)
+    }
 
 
     # BlockComment(string blockOpen = '/*', string blockClose = '*/')
@@ -617,7 +723,7 @@
     }
 
     #endregion
-#╚══════════════════════════════════════════════════════════════════════════════════════════════════════ EXTEND STRING ═╝
+#╚══════════════════════════════════════════════════════════════════════════════════════════════════════ EXTEND String ═╝
 
 #╔═ EXTEND BYTE[] ══════════════════════════════════════════════════════════════════════════════════════════════════════╗
     #region
@@ -691,7 +797,7 @@
     #endregion
 #╚══════════════════════════════════════════════════════════════════════════════════════════════════════ EXTEND BYTE[] ═╝
 
-#╔═ EXTEND SECURESTRING ════════════════════════════════════════════════════════════════════════════════════════════════╗
+#╔═ EXTEND SecureString ════════════════════════════════════════════════════════════════════════════════════════════════╗
     #region
 
     # This section extends the System.Security.SecureString class with additional common properties and methods
@@ -700,7 +806,7 @@
     ###################################################################################################################
     Update-TypeData -TypeName System.Security.SecureString -MemberType ScriptProperty -MemberName MD5 -Force -Value {
         # Convert the SecureString to a byte array without exposing any of the data in memory
-        $array = [Encryption]::SecureStringToByteArray($this)
+        $array = [Encryption]::ConvertSecureStringToByteArray($this)
         try {$array.MD5}
         finally {
             # immediately zero out the byte array to remove any trace of the data before it is garbage collected
@@ -712,7 +818,7 @@
     ###################################################################################################################
     Update-TypeData -TypeName System.Security.SecureString -MemberType ScriptProperty -MemberName SHA1 -Force -Value {
         # Convert the SecureString to a byte array without exposing any of the data in memory
-        $array = [Encryption]::SecureStringToByteArray($this)
+        $array = [Encryption]::ConvertSecureStringToByteArray($this)
         try {$array.SHA1}
         finally {
             # immediately zero out the byte array to remove any trace of the data before it is garbage collected
@@ -724,7 +830,7 @@
     ###################################################################################################################
     Update-TypeData -TypeName System.Security.SecureString -MemberType ScriptProperty -MemberName SHA256 -Force -Value {
         # Convert the SecureString to a byte array without exposing any of the data in memory
-        $array = [Encryption]::SecureStringToByteArray($this)
+        $array = [Encryption]::ConvertSecureStringToByteArray($this)
         try {$array.SHA256}
         finally {
             # immediately zero out the byte array to remove any trace of the data before it is garbage collected
@@ -736,7 +842,7 @@
     ###################################################################################################################
     Update-TypeData -TypeName System.Security.SecureString -MemberType ScriptProperty -MemberName SHA384 -Force -Value {
         # Convert the SecureString to a byte array without exposing any of the data in memory
-        $array = [Encryption]::SecureStringToByteArray($this)
+        $array = [Encryption]::ConvertSecureStringToByteArray($this)
         try {$array.SHA384}
         finally {
             # immediately zero out the byte array to remove any trace of the data before it is garbage collected
@@ -748,7 +854,7 @@
     ###################################################################################################################
     Update-TypeData -TypeName System.Security.SecureString -MemberType ScriptProperty -MemberName SHA512 -Force -Value {
         # Convert the SecureString to a byte array without exposing any of the data in memory
-        $array = [Encryption]::SecureStringToByteArray($this)
+        $array = [Encryption]::ConvertSecureStringToByteArray($this)
         try {$array.SHA512}
         finally {
             # immediately zero out the byte array to remove any trace of the data before it is garbage collected
@@ -759,12 +865,12 @@
     # ToByteArray
     ###################################################################################################################
     Update-TypeData -TypeName System.Security.SecureString -MemberType ScriptMethod -MemberName ToByteArray -Force -Value {
-        [Encryption]::SecureStringToByteArray($this)
+        [Encryption]::ConvertSecureStringToByteArray($this)
     }
 
 
     #endregion
-#╚════════════════════════════════════════════════════════════════════════════════════════════════ EXTEND SECURESTRING ═╝
+#╚════════════════════════════════════════════════════════════════════════════════════════════════ EXTEND SecureString ═╝
 
 #╔═ EXTEND PSCredential ════════════════════════════════════════════════════════════════════════════════════════════════╗
     #region
@@ -775,7 +881,7 @@
     ###################################################################################################################
     Update-TypeData -TypeName System.Management.Automation.PSCredential -MemberType ScriptProperty -MemberName MD5 -Force -Value {
         # Convert the PSCredential to a byte array without exposing any of the data in memory
-        $array = [Encryption]::PSCredentialToByteArray($this)
+        $array = [Encryption]::ConvertPSCredentialToByteArray($this)
         try {$array.MD5}
         finally {
             # immediately zero out the byte array to remove any trace of the data before it is garbage collected
@@ -787,7 +893,7 @@
     ###################################################################################################################
     Update-TypeData -TypeName System.Management.Automation.PSCredential -MemberType ScriptProperty -MemberName SHA1 -Force -Value {
         # Convert the PSCredential to a byte array without exposing any of the data in memory
-        $array = [Encryption]::PSCredentialToByteArray($this)
+        $array = [Encryption]::ConvertPSCredentialToByteArray($this)
         try {$array.SHA1}
         finally {
             # immediately zero out the byte array to remove any trace of the data before it is garbage collected
@@ -799,7 +905,7 @@
     ###################################################################################################################
     Update-TypeData -TypeName System.Management.Automation.PSCredential -MemberType ScriptProperty -MemberName SHA256 -Force -Value {
         # Convert the PSCredential to a byte array without exposing any of the data in memory
-        $array = [Encryption]::PSCredentialToByteArray($this)
+        $array = [Encryption]::ConvertPSCredentialToByteArray($this)
         try {$array.SHA256}
         finally {
             # immediately zero out the byte array to remove any trace of the data before it is garbage collected
@@ -811,7 +917,7 @@
     ###################################################################################################################
     Update-TypeData -TypeName System.Management.Automation.PSCredential -MemberType ScriptProperty -MemberName SHA384 -Force -Value {
         # Convert the PSCredential to a byte array without exposing any of the data in memory
-        $array = [Encryption]::PSCredentialToByteArray($this)
+        $array = [Encryption]::ConvertPSCredentialToByteArray($this)
         try {$array.SHA384}
         finally {
             # immediately zero out the byte array to remove any trace of the data before it is garbage collected
@@ -823,7 +929,7 @@
     ###################################################################################################################
     Update-TypeData -TypeName System.Management.Automation.PSCredential -MemberType ScriptProperty -MemberName SHA512 -Force -Value {
         # Convert the PSCredential to a byte array without exposing any of the data in memory
-        $array = [Encryption]::PSCredentialToByteArray($this)
+        $array = [Encryption]::ConvertPSCredentialToByteArray($this)
         try {$array.SHA512}
         finally {
             # immediately zero out the byte array to remove any trace of the data before it is garbage collected
@@ -834,7 +940,7 @@
     # ToByteArray
     ###################################################################################################################
     Update-TypeData -TypeName System.Management.Automation.PSCredential -MemberType ScriptMethod -MemberName ToByteArray -Force -Value {
-        [Encryption]::PSCredentialToByteArray($this)
+        [Encryption]::ConvertPSCredentialToByteArray($this)
     }
 
 
