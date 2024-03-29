@@ -26,291 +26,6 @@
     #endregion
 #╚════════════════════════════════════════════════════════════════════════════════════════════ DEFAULTS AND ESSENTIALS ═╝
 
-#╔═ EXTEND STRING ══════════════════════════════════════════════════════════════════════════════════════════════════════╗
-    #region
-
-    # This section extends the System.String class with additional common properties and methods
-
-
-    # BlockComment(string blockOpen = '/*', string blockClose = '*/')
-    ###################################################################################################################
-    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName BlockComment -Force -Value {
-        param([string] $blockOpen = '/*', [string] $blockClose = '*/')
-        "$blockOpen`n$this`n$blockClose"
-    }
-
-    # Comment(string $commentChar = '#')
-    ###################################################################################################################
-    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName Comment -Force -Value {
-        param([string] $commentChar = '#')
-        $this -replace '(?m)^', $commentChar
-    }
-
-    # FromBase64
-    ###################################################################################################################
-    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName FromBase64 -Force -Value {
-        [Defaults]::Encoding.GetString([Convert]::FromBase64String($this ?? ''))
-    }
-
-    # GetBytes
-    ###################################################################################################################
-    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName GetBytes -Force -Value {
-        [Defaults]::Encoding.GetBytes($this ?? '')
-    }
-
-    # FromJson
-    ###################################################################################################################
-    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName FromJson -Force -Value {
-        $this | ConvertFrom-Json
-    }
-
-    # FromClipboard
-    ###################################################################################################################
-    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName FromClipboard -Force -Value {
-        Get-Clipboard
-    }
-
-    # Indent(int $indent = 4)
-    ###################################################################################################################
-    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName Indent -Force -Value {
-        param([int] $indent = 4)
-        $this -replace '(?m)^', (' ' * $indent)
-    }
-
-    # IsNullOrEmpty
-    ###################################################################################################################
-    Update-TypeData -TypeName System.String -MemberType ScriptProperty -MemberName IsNullOrEmpty -Force -Value {
-        [string]::IsNullOrEmpty($this)
-    }
-
-    # IsNullOrWhiteSpace
-    ###################################################################################################################
-    Update-TypeData -TypeName System.String -MemberType ScriptProperty -MemberName IsNullOrWhiteSpace -Force -Value {
-        [string]::IsNullOrWhiteSpace($this)
-    }
-
-    # MD5
-    ###################################################################################################################
-    Update-TypeData -TypeName System.String -MemberType ScriptProperty -MemberName MD5 -Force -Value {
-        $md5 = [System.Security.Cryptography.MD5]::Create()
-        try {$hash = [System.BitConverter]::ToString($md5.ComputeHash([Defaults]::Encoding.GetBytes($this ?? ''))).Replace('-','')}
-        catch {throw}
-        finally {$md5.Dispose()}
-        $hash
-    }
-
-    # NewGuid
-    ###################################################################################################################
-    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName NewGuid -Force -Value {
-        [guid]::NewGuid().ToString()
-    }
-
-    # RandomBytes(int $length = 16)
-    ###################################################################################################################
-    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName RandomBytes -Force -Value {
-        param([int] $length = 16)
-        $randomBytes = New-Object byte[] $Length
-        $rng = [System.Security.Cryptography.RNGCryptoServiceProvider]::new()
-        try {$rng.GetBytes($randomBytes)}
-        catch {throw}
-        finally {$rng.Dispose()}
-        $randomBytes
-    }
-
-    # RandomString(int $length = 16)
-    ###################################################################################################################
-    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName RandomString -Force -Value {
-        param([int] $length = 16)
-        $randomBytes = New-Object byte[] $Length
-        $rng = [System.Security.Cryptography.RNGCryptoServiceProvider]::new()
-        try {$rng.GetBytes($randomBytes)}
-        catch {throw}
-        finally {$rng.Dispose()}
-        [Convert]::ToBase64String($randomBytes).Substring(0,$length)
-    }
-
-    # RemoveComment(string $commentChar = '#')
-    ###################################################################################################################
-    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName RemoveComment -Force -Value {
-        param([string] $commentChar = '#')
-        $this -replace "(?m)^$commentChar"
-    }
-
-    # RemoveBlockComment(string blockOpen = '/*', string blockClose = '*/')
-    ###################################################################################################################
-    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName RemoveBlockComment -Force -Value {
-        param([string] $blockOpen = '/*', [string] $blockClose = '*/')
-            $escapedBlockOpen = [regex]::Escape($blockOpen)
-            $escapedBlockClose = [regex]::Escape($blockClose)
-            $pattern = "(?s)$escapedBlockOpen.*?$escapedBlockClose"
-            $this -replace $pattern, ''
-    }
-
-    # RemoveIndent(int $indent = 4)
-    ###################################################################################################################
-    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName RemoveIndent -Force -Value {
-        param([int] $indent = 4)
-        $this -replace "(?m)^ {0,$indent}"
-    }
-
-    # Reverse
-    ###################################################################################################################
-    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName Reverse -Force -Value {
-        $chars = $this.ToCharArray()
-        [array]::Reverse($chars)
-        -join $chars
-    }
-
-    # Salt
-    ###################################################################################################################
-    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName Salt -Force -Value {
-        param()
-        $salt = [byte[]]::new(16)
-        [System.Security.Cryptography.RandomNumberGenerator]::Fill($salt)
-        $salt
-    }
-
-    # SHA1
-    ###################################################################################################################
-    Update-TypeData -TypeName System.String -MemberType ScriptProperty -MemberName SHA1 -Force -Value {
-        $sha1 = [System.Security.Cryptography.SHA1]::Create()
-        try {$hash = [System.BitConverter]::ToString($sha1.ComputeHash([Defaults]::Encoding.GetBytes($this ?? ''))).Replace('-','')}
-        catch {$hash = 'DA39A3EE5E6B4B0D3255BFEF95601890AFD80709'}
-        finally {$sha1.Dispose()}
-        $hash
-    }
-
-    # SHA256
-    ###################################################################################################################
-    Update-TypeData -TypeName System.String -MemberType ScriptProperty -MemberName SHA256 -Force -Value {
-        $sha256 = [System.Security.Cryptography.SHA256]::Create()
-        try {$hash = [System.BitConverter]::ToString($sha256.ComputeHash([Defaults]::Encoding.GetBytes($this ?? ''))).Replace('-','')}
-        catch {$hash = 'E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855'}
-        finally {$sha256.Dispose()}
-        $hash
-    }
-
-    # SHA384
-    ###################################################################################################################
-    Update-TypeData -TypeName System.String -MemberType ScriptProperty -MemberName SHA384 -Force -Value {
-        $sha384 = [System.Security.Cryptography.SHA384]::Create()
-        try {$hash = [System.BitConverter]::ToString($sha384.ComputeHash([Defaults]::Encoding.GetBytes($this ?? ''))).Replace('-','')}
-        catch {$hash = '38B060A751AC96384CD9327EB1B1E36A21FDB71114BE07434C0CC7BF63F6E1DA274EDEBFE76F65FBD51AD2F14898B95B'}
-        finally {$sha384.Dispose()}
-        $hash
-    }
-
-    # SHA512
-    ###################################################################################################################
-    Update-TypeData -TypeName System.String -MemberType ScriptProperty -MemberName SHA512 -Force -Value {
-        $sha512 = [System.Security.Cryptography.SHA512]::Create()
-        try {$hash = [System.BitConverter]::ToString($sha512.ComputeHash([Defaults]::Encoding.GetBytes($this ?? ''))).Replace('-','')}
-        catch {$hash = 'CF83E1357EEFB8BDF1542850D66D8007D620E4050B5715DC83F4A921D36CE9CE47D0D13C5D85F2B0FF8318D2877EEC2F63B931BD47417A81A538327AF927DA3E'}
-        finally {$sha512.Dispose()}
-        $hash
-    }
-
-    # ToClipboard(bool $passthru = $false)
-    ###################################################################################################################
-    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName ToClipboard -Force -Value {
-        param([bool] $passthru = $false)
-        $this | Set-Clipboard
-        if ($passthru) { $this }
-    }
-
-    # ToBase64
-    ###################################################################################################################
-    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName ToBase64 -Force -Value {
-        [Convert]::ToBase64String([Defaults]::Encoding.GetBytes($this ?? ''))
-    }
-
-    # ToJson
-    ###################################################################################################################
-    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName ToJson -Force -Value {
-        $this | ConvertTo-Json
-    }
-
-    # ToSecureString
-    ###################################################################################################################
-    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName ToSecureString -Force -Value {
-        $this | ConvertTo-SecureString -AsPlainText -Force
-    }
-
-    #endregion
-#╚══════════════════════════════════════════════════════════════════════════════════════════════════════ EXTEND STRING ═╝
-
-#╔═ EXTEND BYTE[] ══════════════════════════════════════════════════════════════════════════════════════════════════════╗
-    #region
-
-    # This section extends the System.Byte[] class with additional common properties and methods
-
-    # MD5
-    ###################################################################################################################
-    Update-TypeData -TypeName System.Byte[] -MemberType ScriptProperty -MemberName MD5 -Force -Value {
-        $md5 = [System.Security.Cryptography.MD5]::Create()
-        try {$hash = [System.BitConverter]::ToString($md5.ComputeHash($this)).Replace('-','')}
-        catch {$hash = 'D41D8CD98F00B204E9800998ECF8427E'}
-        finally {$md5.Dispose()}
-        $hash
-    }
-
-    # SHA1
-    ###################################################################################################################
-    Update-TypeData -TypeName System.Byte[] -MemberType ScriptProperty -MemberName SHA1 -Force -Value {
-        $sha1 = [System.Security.Cryptography.SHA1]::Create()
-        try {$hash = [System.BitConverter]::ToString($sha1.ComputeHash($this)).Replace('-','')}
-        catch {$hash = 'DA39A3EE5E6B4B0D3255BFEF95601890AFD80709'}
-        finally {$sha1.Dispose()}
-        $hash
-    }
-
-    # SHA256
-    ###################################################################################################################
-    Update-TypeData -TypeName System.Byte[] -MemberType ScriptProperty -MemberName SHA256 -Force -Value {
-        $sha256 = [System.Security.Cryptography.SHA256]::Create()
-        try {$hash = [System.BitConverter]::ToString($sha256.ComputeHash($this)).Replace('-','')}
-        catch {$hash = 'E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855'}
-        finally {$sha256.Dispose()}
-        $hash
-    }
-
-    # SHA384
-    ###################################################################################################################
-    Update-TypeData -TypeName System.Byte[] -MemberType ScriptProperty -MemberName SHA384 -Force -Value {
-        $sha384 = [System.Security.Cryptography.SHA384]::Create()
-        try {$hash = [System.BitConverter]::ToString($sha384.ComputeHash($this)).Replace('-','')}
-        catch {$hash = '38B060A751AC96384CD9327EB1B1E36A21FDB71114BE07434C0CC7BF63F6E1DA274EDEBFE76F65FBD51AD2F14898B95B'}
-        finally {$sha384.Dispose()}
-        $hash
-    }
-
-    # SHA512
-    ###################################################################################################################
-    Update-TypeData -TypeName System.Byte[] -MemberType ScriptProperty -MemberName SHA512 -Force -Value {
-        $sha512 = [System.Security.Cryptography.SHA512]::Create()
-        try {$hash = [System.BitConverter]::ToString($sha512.ComputeHash($this)).Replace('-','')}
-        catch {$hash = 'CF83E1357EEFB8BDF1542850D66D8007D620E4050B5715DC83F4A921D36CE9CE47D0D13C5D85F2B0FF8318D2877EEC2F63B931BD47417A81A538327AF927DA3E'}
-        finally {$sha512.Dispose()}
-        $hash
-    }
-
-    # ToBase64
-    ###################################################################################################################
-    Update-TypeData -TypeName System.Byte[] -MemberType ScriptMethod -MemberName ToBase64 -Force -Value {
-        [Convert]::ToBase64String($this)
-    }
-
-    # ToHexString
-    ###################################################################################################################
-    Update-TypeData -TypeName System.Byte[] -MemberType ScriptMethod -MemberName ToHexString -Force -Value {
-        $this | ForEach-Object { $_.ToString('X2') } | Join-String
-    }
-
-
-
-    #endregion
-#╚══════════════════════════════════════════════════════════════════════════════════════════════════════ EXTEND BYTE[] ═╝
-
 #╔═ CLASSES ════════════════════════════════════════════════════════════════════════════════════════════════════════════╗
     #region
     enum TextAlignment {
@@ -666,7 +381,7 @@
         }
 
         static [byte[]] SecureStringToByteArray([System.Security.SecureString]$secureString) {
-            # Converts a SecureString to a byte array without ever exposing it in memory
+            # Safely converts a SecureString to a byte array without ever exposing it in memory
             $bytes = $null
             if ($null -eq $secureString) {throw [System.ArgumentNullException]::new('secureString')}
             $pointer = [System.Runtime.InteropServices.Marshal]::SecureStringToGlobalAllocUnicode($secureString)
@@ -680,7 +395,449 @@
                 [System.Runtime.InteropServices.Marshal]::ZeroFreeGlobalAllocUnicode($pointer)
             }
         }
+
+        static [byte[]] PSCredentialToByteArray([System.Management.Automation.PSCredential]$credential) {
+            # Safely converts a PSCredential to a byte array without ever exposing it in memory
+            $credentialBytes = [Defaults]::Encoding.GetBytes($credential.UserName) + [Encryption]::SecureStringToByteArray($credential.Password)
+            return $credentialBytes
+        }
         #endregion
     }
     #endregion
 #╚════════════════════════════════════════════════════════════════════════════════════════════════════════════ CLASSES ═╝
+
+#╔═ EXTEND STRING ══════════════════════════════════════════════════════════════════════════════════════════════════════╗
+    #region
+
+    # This section extends the System.String class with additional common properties and methods
+
+
+    # BlockComment(string blockOpen = '/*', string blockClose = '*/')
+    ###################################################################################################################
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName BlockComment -Force -Value {
+        param([string] $blockOpen = '/*', [string] $blockClose = '*/')
+        "$blockOpen`n$this`n$blockClose"
+    }
+
+    # Comment(string $commentChar = '#')
+    ###################################################################################################################
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName Comment -Force -Value {
+        param([string] $commentChar = '#')
+        $this -replace '(?m)^', $commentChar
+    }
+
+    # FromBase64
+    ###################################################################################################################
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName FromBase64 -Force -Value {
+        [Defaults]::Encoding.GetString([Convert]::FromBase64String($this ?? ''))
+    }
+
+    # GetBytes
+    ###################################################################################################################
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName GetBytes -Force -Value {
+        [Defaults]::Encoding.GetBytes($this ?? '')
+    }
+
+    # FromJson
+    ###################################################################################################################
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName FromJson -Force -Value {
+        $this | ConvertFrom-Json
+    }
+
+    # FromClipboard
+    ###################################################################################################################
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName FromClipboard -Force -Value {
+        Get-Clipboard
+    }
+
+    # Indent(int $indent = 4)
+    ###################################################################################################################
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName Indent -Force -Value {
+        param([int] $indent = 4)
+        $this -replace '(?m)^', (' ' * $indent)
+    }
+
+    # IsNullOrEmpty
+    ###################################################################################################################
+    Update-TypeData -TypeName System.String -MemberType ScriptProperty -MemberName IsNullOrEmpty -Force -Value {
+        [string]::IsNullOrEmpty($this)
+    }
+
+    # IsNullOrWhiteSpace
+    ###################################################################################################################
+    Update-TypeData -TypeName System.String -MemberType ScriptProperty -MemberName IsNullOrWhiteSpace -Force -Value {
+        [string]::IsNullOrWhiteSpace($this)
+    }
+
+    # MD5
+    ###################################################################################################################
+    Update-TypeData -TypeName System.String -MemberType ScriptProperty -MemberName MD5 -Force -Value {
+        $md5 = [System.Security.Cryptography.MD5]::Create()
+        try {$hash = [System.BitConverter]::ToString($md5.ComputeHash([Defaults]::Encoding.GetBytes($this ?? ''))).Replace('-','')}
+        catch {throw}
+        finally {$md5.Dispose()}
+        $hash
+    }
+
+    # NewGuid
+    ###################################################################################################################
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName NewGuid -Force -Value {
+        [guid]::NewGuid().ToString()
+    }
+
+    # RandomBytes(int $length = 16)
+    ###################################################################################################################
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName RandomBytes -Force -Value {
+        param([int] $length = 16)
+        $randomBytes = New-Object byte[] $Length
+        $rng = [System.Security.Cryptography.RNGCryptoServiceProvider]::new()
+        try {$rng.GetBytes($randomBytes)}
+        catch {throw}
+        finally {$rng.Dispose()}
+        $randomBytes
+    }
+
+    # RandomString(int $length = 16)
+    ###################################################################################################################
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName RandomString -Force -Value {
+        param([int] $length = 16)
+        $randomBytes = New-Object byte[] $Length
+        $rng = [System.Security.Cryptography.RNGCryptoServiceProvider]::new()
+        try {$rng.GetBytes($randomBytes)}
+        catch {throw}
+        finally {$rng.Dispose()}
+        [Convert]::ToBase64String($randomBytes).Substring(0,$length)
+    }
+
+    # RemoveComment(string $commentChar = '#')
+    ###################################################################################################################
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName RemoveComment -Force -Value {
+        param([string] $commentChar = '#')
+        $this -replace "(?m)^$commentChar"
+    }
+
+    # RemoveBlockComment(string blockOpen = '/*', string blockClose = '*/')
+    ###################################################################################################################
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName RemoveBlockComment -Force -Value {
+        param([string] $blockOpen = '/*', [string] $blockClose = '*/')
+            $escapedBlockOpen = [regex]::Escape($blockOpen)
+            $escapedBlockClose = [regex]::Escape($blockClose)
+            $pattern = "(?s)$escapedBlockOpen.*?$escapedBlockClose"
+            $this -replace $pattern, ''
+    }
+
+    # RemoveIndent(int $indent = 4)
+    ###################################################################################################################
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName RemoveIndent -Force -Value {
+        param([int] $indent = 4)
+        $this -replace "(?m)^ {0,$indent}"
+    }
+
+    # Reverse
+    ###################################################################################################################
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName Reverse -Force -Value {
+        $chars = $this.ToCharArray()
+        [array]::Reverse($chars)
+        -join $chars
+    }
+
+    # Salt
+    ###################################################################################################################
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName Salt -Force -Value {
+        param()
+        $salt = [byte[]]::new(16)
+        [System.Security.Cryptography.RandomNumberGenerator]::Fill($salt)
+        $salt
+    }
+
+    # SHA1
+    ###################################################################################################################
+    Update-TypeData -TypeName System.String -MemberType ScriptProperty -MemberName SHA1 -Force -Value {
+        $sha1 = [System.Security.Cryptography.SHA1]::Create()
+        try {$hash = [System.BitConverter]::ToString($sha1.ComputeHash([Defaults]::Encoding.GetBytes($this ?? ''))).Replace('-','')}
+        catch {$hash = 'DA39A3EE5E6B4B0D3255BFEF95601890AFD80709'}
+        finally {$sha1.Dispose()}
+        $hash
+    }
+
+    # SHA256
+    ###################################################################################################################
+    Update-TypeData -TypeName System.String -MemberType ScriptProperty -MemberName SHA256 -Force -Value {
+        $sha256 = [System.Security.Cryptography.SHA256]::Create()
+        try {$hash = [System.BitConverter]::ToString($sha256.ComputeHash([Defaults]::Encoding.GetBytes($this ?? ''))).Replace('-','')}
+        catch {$hash = 'E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855'}
+        finally {$sha256.Dispose()}
+        $hash
+    }
+
+    # SHA384
+    ###################################################################################################################
+    Update-TypeData -TypeName System.String -MemberType ScriptProperty -MemberName SHA384 -Force -Value {
+        $sha384 = [System.Security.Cryptography.SHA384]::Create()
+        try {$hash = [System.BitConverter]::ToString($sha384.ComputeHash([Defaults]::Encoding.GetBytes($this ?? ''))).Replace('-','')}
+        catch {$hash = '38B060A751AC96384CD9327EB1B1E36A21FDB71114BE07434C0CC7BF63F6E1DA274EDEBFE76F65FBD51AD2F14898B95B'}
+        finally {$sha384.Dispose()}
+        $hash
+    }
+
+    # SHA512
+    ###################################################################################################################
+    Update-TypeData -TypeName System.String -MemberType ScriptProperty -MemberName SHA512 -Force -Value {
+        $sha512 = [System.Security.Cryptography.SHA512]::Create()
+        try {$hash = [System.BitConverter]::ToString($sha512.ComputeHash([Defaults]::Encoding.GetBytes($this ?? ''))).Replace('-','')}
+        catch {$hash = 'CF83E1357EEFB8BDF1542850D66D8007D620E4050B5715DC83F4A921D36CE9CE47D0D13C5D85F2B0FF8318D2877EEC2F63B931BD47417A81A538327AF927DA3E'}
+        finally {$sha512.Dispose()}
+        $hash
+    }
+
+    # ToClipboard(bool $passthru = $false)
+    ###################################################################################################################
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName ToClipboard -Force -Value {
+        param([bool] $passthru = $false)
+        $this | Set-Clipboard
+        if ($passthru) { $this }
+    }
+
+    # ToBase64
+    ###################################################################################################################
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName ToBase64 -Force -Value {
+        [Convert]::ToBase64String([Defaults]::Encoding.GetBytes($this ?? ''))
+    }
+
+    # ToJson
+    ###################################################################################################################
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName ToJson -Force -Value {
+        $this | ConvertTo-Json
+    }
+
+    # ToSecureString
+    ###################################################################################################################
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName ToSecureString -Force -Value {
+        $this | ConvertTo-SecureString -AsPlainText -Force
+    }
+
+    #endregion
+#╚══════════════════════════════════════════════════════════════════════════════════════════════════════ EXTEND STRING ═╝
+
+#╔═ EXTEND BYTE[] ══════════════════════════════════════════════════════════════════════════════════════════════════════╗
+    #region
+
+    # This section extends the System.Byte[] class with additional common properties and methods
+
+    # MD5
+    ###################################################################################################################
+    Update-TypeData -TypeName System.Byte[] -MemberType ScriptProperty -MemberName MD5 -Force -Value {
+        $md5 = [System.Security.Cryptography.MD5]::Create()
+        try {$hash = [System.BitConverter]::ToString($md5.ComputeHash($this)).Replace('-','')}
+        catch {$hash = 'D41D8CD98F00B204E9800998ECF8427E'}
+        finally {$md5.Dispose()}
+        $hash
+    }
+
+    # SHA1
+    ###################################################################################################################
+    Update-TypeData -TypeName System.Byte[] -MemberType ScriptProperty -MemberName SHA1 -Force -Value {
+        $sha1 = [System.Security.Cryptography.SHA1]::Create()
+        try {$hash = [System.BitConverter]::ToString($sha1.ComputeHash($this)).Replace('-','')}
+        catch {$hash = 'DA39A3EE5E6B4B0D3255BFEF95601890AFD80709'}
+        finally {$sha1.Dispose()}
+        $hash
+    }
+
+    # SHA256
+    ###################################################################################################################
+    Update-TypeData -TypeName System.Byte[] -MemberType ScriptProperty -MemberName SHA256 -Force -Value {
+        $sha256 = [System.Security.Cryptography.SHA256]::Create()
+        try {$hash = [System.BitConverter]::ToString($sha256.ComputeHash($this)).Replace('-','')}
+        catch {$hash = 'E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855'}
+        finally {$sha256.Dispose()}
+        $hash
+    }
+
+    # SHA384
+    ###################################################################################################################
+    Update-TypeData -TypeName System.Byte[] -MemberType ScriptProperty -MemberName SHA384 -Force -Value {
+        $sha384 = [System.Security.Cryptography.SHA384]::Create()
+        try {$hash = [System.BitConverter]::ToString($sha384.ComputeHash($this)).Replace('-','')}
+        catch {$hash = '38B060A751AC96384CD9327EB1B1E36A21FDB71114BE07434C0CC7BF63F6E1DA274EDEBFE76F65FBD51AD2F14898B95B'}
+        finally {$sha384.Dispose()}
+        $hash
+    }
+
+    # SHA512
+    ###################################################################################################################
+    Update-TypeData -TypeName System.Byte[] -MemberType ScriptProperty -MemberName SHA512 -Force -Value {
+        $sha512 = [System.Security.Cryptography.SHA512]::Create()
+        try {$hash = [System.BitConverter]::ToString($sha512.ComputeHash($this)).Replace('-','')}
+        catch {$hash = 'CF83E1357EEFB8BDF1542850D66D8007D620E4050B5715DC83F4A921D36CE9CE47D0D13C5D85F2B0FF8318D2877EEC2F63B931BD47417A81A538327AF927DA3E'}
+        finally {$sha512.Dispose()}
+        $hash
+    }
+
+    # ToBase64
+    ###################################################################################################################
+    Update-TypeData -TypeName System.Byte[] -MemberType ScriptMethod -MemberName ToBase64 -Force -Value {
+        [Convert]::ToBase64String($this)
+    }
+
+    # ToHexString
+    ###################################################################################################################
+    Update-TypeData -TypeName System.Byte[] -MemberType ScriptMethod -MemberName ToHexString -Force -Value {
+        $this | ForEach-Object { $_.ToString('X2') } | Join-String
+    }
+
+
+
+    #endregion
+#╚══════════════════════════════════════════════════════════════════════════════════════════════════════ EXTEND BYTE[] ═╝
+
+#╔═ EXTEND SECURESTRING ════════════════════════════════════════════════════════════════════════════════════════════════╗
+    #region
+
+    # This section extends the System.Security.SecureString class with additional common properties and methods
+
+    # MD5
+    ###################################################################################################################
+    Update-TypeData -TypeName System.Security.SecureString -MemberType ScriptProperty -MemberName MD5 -Force -Value {
+        # Convert the SecureString to a byte array without exposing any of the data in memory
+        $array = [Encryption]::SecureStringToByteArray($this)
+        try {$array.MD5}
+        finally {
+            # immediately zero out the byte array to remove any trace of the data before it is garbage collected
+            for ($i = 0; $i -lt $array.Length; $i++) { $array[$i] = 0 }
+        }
+    }
+
+    # SHA1
+    ###################################################################################################################
+    Update-TypeData -TypeName System.Security.SecureString -MemberType ScriptProperty -MemberName SHA1 -Force -Value {
+        # Convert the SecureString to a byte array without exposing any of the data in memory
+        $array = [Encryption]::SecureStringToByteArray($this)
+        try {$array.SHA1}
+        finally {
+            # immediately zero out the byte array to remove any trace of the data before it is garbage collected
+            for ($i = 0; $i -lt $array.Length; $i++) { $array[$i] = 0 }
+        }
+    }
+
+    # SHA256
+    ###################################################################################################################
+    Update-TypeData -TypeName System.Security.SecureString -MemberType ScriptProperty -MemberName SHA256 -Force -Value {
+        # Convert the SecureString to a byte array without exposing any of the data in memory
+        $array = [Encryption]::SecureStringToByteArray($this)
+        try {$array.SHA256}
+        finally {
+            # immediately zero out the byte array to remove any trace of the data before it is garbage collected
+            for ($i = 0; $i -lt $array.Length; $i++) { $array[$i] = 0 }
+        }
+    }
+
+    # SHA384
+    ###################################################################################################################
+    Update-TypeData -TypeName System.Security.SecureString -MemberType ScriptProperty -MemberName SHA384 -Force -Value {
+        # Convert the SecureString to a byte array without exposing any of the data in memory
+        $array = [Encryption]::SecureStringToByteArray($this)
+        try {$array.SHA384}
+        finally {
+            # immediately zero out the byte array to remove any trace of the data before it is garbage collected
+            for ($i = 0; $i -lt $array.Length; $i++) { $array[$i] = 0 }
+        }
+    }
+
+    # SHA512
+    ###################################################################################################################
+    Update-TypeData -TypeName System.Security.SecureString -MemberType ScriptProperty -MemberName SHA512 -Force -Value {
+        # Convert the SecureString to a byte array without exposing any of the data in memory
+        $array = [Encryption]::SecureStringToByteArray($this)
+        try {$array.SHA512}
+        finally {
+            # immediately zero out the byte array to remove any trace of the data before it is garbage collected
+            for ($i = 0; $i -lt $array.Length; $i++) { $array[$i] = 0 }
+        }
+    }
+
+    # ToByteArray
+    ###################################################################################################################
+    Update-TypeData -TypeName System.Security.SecureString -MemberType ScriptMethod -MemberName ToByteArray -Force -Value {
+        [Encryption]::SecureStringToByteArray($this)
+    }
+
+
+    #endregion
+#╚════════════════════════════════════════════════════════════════════════════════════════════════ EXTEND SECURESTRING ═╝
+
+#╔═ EXTEND PSCredential ════════════════════════════════════════════════════════════════════════════════════════════════╗
+    #region
+
+    # This section extends the System.Management.Automation.PSCredential class with additional common properties and methods
+
+    # MD5
+    ###################################################################################################################
+    Update-TypeData -TypeName System.Management.Automation.PSCredential -MemberType ScriptProperty -MemberName MD5 -Force -Value {
+        # Convert the PSCredential to a byte array without exposing any of the data in memory
+        $array = [Encryption]::PSCredentialToByteArray($this)
+        try {$array.MD5}
+        finally {
+            # immediately zero out the byte array to remove any trace of the data before it is garbage collected
+            for ($i = 0; $i -lt $array.Length; $i++) { $array[$i] = 0 }
+        }
+    }
+
+    # SHA1
+    ###################################################################################################################
+    Update-TypeData -TypeName System.Management.Automation.PSCredential -MemberType ScriptProperty -MemberName SHA1 -Force -Value {
+        # Convert the PSCredential to a byte array without exposing any of the data in memory
+        $array = [Encryption]::PSCredentialToByteArray($this)
+        try {$array.SHA1}
+        finally {
+            # immediately zero out the byte array to remove any trace of the data before it is garbage collected
+            for ($i = 0; $i -lt $array.Length; $i++) { $array[$i] = 0 }
+        }
+    }
+
+    # SHA256
+    ###################################################################################################################
+    Update-TypeData -TypeName System.Management.Automation.PSCredential -MemberType ScriptProperty -MemberName SHA256 -Force -Value {
+        # Convert the PSCredential to a byte array without exposing any of the data in memory
+        $array = [Encryption]::PSCredentialToByteArray($this)
+        try {$array.SHA256}
+        finally {
+            # immediately zero out the byte array to remove any trace of the data before it is garbage collected
+            for ($i = 0; $i -lt $array.Length; $i++) { $array[$i] = 0 }
+        }
+    }
+
+    # SHA384
+    ###################################################################################################################
+    Update-TypeData -TypeName System.Management.Automation.PSCredential -MemberType ScriptProperty -MemberName SHA384 -Force -Value {
+        # Convert the PSCredential to a byte array without exposing any of the data in memory
+        $array = [Encryption]::PSCredentialToByteArray($this)
+        try {$array.SHA384}
+        finally {
+            # immediately zero out the byte array to remove any trace of the data before it is garbage collected
+            for ($i = 0; $i -lt $array.Length; $i++) { $array[$i] = 0 }
+        }
+    }
+
+    # SHA512
+    ###################################################################################################################
+    Update-TypeData -TypeName System.Management.Automation.PSCredential -MemberType ScriptProperty -MemberName SHA512 -Force -Value {
+        # Convert the PSCredential to a byte array without exposing any of the data in memory
+        $array = [Encryption]::PSCredentialToByteArray($this)
+        try {$array.SHA512}
+        finally {
+            # immediately zero out the byte array to remove any trace of the data before it is garbage collected
+            for ($i = 0; $i -lt $array.Length; $i++) { $array[$i] = 0 }
+        }
+    }
+
+    # ToByteArray
+    ###################################################################################################################
+    Update-TypeData -TypeName System.Management.Automation.PSCredential -MemberType ScriptMethod -MemberName ToByteArray -Force -Value {
+        [Encryption]::PSCredentialToByteArray($this)
+    }
+
+
+
+    #endregion
+#╚════════════════════════════════════════════════════════════════════════════════════════════════ EXTEND PSCredential ═╝
