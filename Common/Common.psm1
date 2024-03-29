@@ -1,39 +1,48 @@
 
+#region HELP INTELLISENSE
+#Uncomment this region to enable intellisense for the eClasses module, otherwise, leave it commented out before releasing
+
+class eHelpAttribute {
+    [string]$Content
+
+    eHelpAttribute([string]$content) {
+        $this.Content = $content
+    }
+
+    [string] ToString() {
+        return $this.Content
+    }
+}
+
+# }
+
+#endregion
+
+#region Preload eHelpAttribute class
+Add-Type -TypeDefinition @'
+using System;
+
+// This class is the base class for all single-attribute eHelp attributes
+public class eHelpAttribute : Attribute
+{
+    public string Content { get; set; }
+
+    public eHelpAttribute(string content)
+    {
+        this.Content = content;
+    }
+}
+
+'@ -Language CSharp
+#endregion
 
 #╔═══BASE═════════════════════════════════════════════════════════════════════════════════════════════════════════════╗
     #region
-    # This region contains the base classes that are used throughout the eClasses module
-
-    #--------------------------------------------
-    #region class eEncoding
-    #--------------------------------------------
-    [eHelpSynopsis('Static class to provide global encoding options for the eClasses module.')]
-    [eHelpDescription('This class is a static class to provide global encoding options for the eClasses module.')]
-    [eHelpNotes('This is a static class and is not meant to instantiate.  The default encoding is Unicode but this can be changed with`n[eEncoding]::$Encoding = [System.Text.Encoding]::UTF8')]
-    [eHelpExample(@'
-PS> [eEncoding]::Encoding = [System.Text.Encoding]::UTF8
-
-Changes the default encoding to UTF8
-'@)]
-    [eHelpExample(@'
-PS>$bytes = [eEncoding]::Encoding.GetBytes("Hello, World!")
-
-Converts the string "Hello, World!" to a byte array using the default encoding
-'@)]
-    [eHelpLink('')]
-    class eEncoding {
-        # Static class to provide global encoding options for the eClasses module
-        static [System.Text.Encoding] $Encoding = [System.Text.Encoding]::Unicode
-    }
-    #endregion
+    # This region contains the other base classes that are used by the eClasses module
 
     #--------------------------------------------
     #region enum eNewlineAdd
     #--------------------------------------------
-    [eHelpSynopsis('Enumeration to determine where a newline character should be added.')]
-    [eHelpDescription('This enumeration is used to determine where a newline character should be added.')]
-    [eHelpNotes('This enumeration is used by classes like eString to determine where a newline character should be added.`nNote: Before and After can be combined to add a newline before and after the string.')]
-    [eHelpLink('')]
     [flags()] enum eNewlineAdd {
         # Used to determine where a newline character should be added
         None = 0
@@ -44,20 +53,20 @@ Converts the string "Hello, World!" to a byte array using the default encoding
     #endregion
 
     #--------------------------------------------
-    #region class eString
+    #region eEncoding
     #--------------------------------------------
-    [eHelpSynopsis('Class to provide additional common string manipulation methods.')]
-    [eHelpDescription('This class is meant to be used as a [System.String] replacement of sorts providing consistency and additional common string manipulation methods.')]
-    [eHelpNotes('')]
-    [eHelpLink('')]
-    class eString {
-        # eString class
-        # This class is used to provide additional common string manipulation methods
+    class eEncoding {
+        static [System.Text.Encoding] $Encoding = [System.Text.Encoding]::Unicode
+    }
+    #endregion
 
+    #--------------------------------------------
+    #region eString
+    #--------------------------------------------
+    class eString {
         #============================================
         #region Properties
         #============================================
-        [eHelpProperty('Value', 'The string value.')]
         [string] $Value
         #endregion
 
@@ -65,7 +74,6 @@ Converts the string "Hello, World!" to a byte array using the default encoding
         #============================================
         #region Static/Hidden Properties
         #============================================
-        [eHelpProperty('IndentSize', '(static, hidden) Sets the default size of the indentation if not passed in')]
         static hidden [int] $IndentSize = 4
         #endregion
 
@@ -75,47 +83,18 @@ Converts the string "Hello, World!" to a byte array using the default encoding
         #============================================
 
         #region Empty
-        [eHelpSynopsis('Creates a new eString object with an empty string.')]
-        [eHelpDescription('This empty constructor creates a new eString object with an empty string.')]
-        [eHelpExample(@'
-PS> $str = [eString]::new()
-
-Creates a new eString object with an empty string.
-'@)]
-        [eHelpNotes('This constructor takes no parameters and creates a new eString object with an empty string.')]
-        [eHelpLink('')]
         eString() {
             $this.Value = ''
         }
         #endregion
 
         #region [string] Value
-        [eHelpSynopsis('Creates a new eString object with the specified string value.')]
-        [eHelpDescription('This constructor creates a new eString object using the specified string value.')]
-        [eHelpParameter('Value', '[System.String] The string value to use when initializing the eString object.')]
-        [eHelpExample(@'
-PS> $str = [eString]::new('Hello, World!')
-
-Creates a new eString object with the value 'Hello, World!'
-'@)]
-        [eHelpNotes('')]
-        [eHelpLink('')]
         eString([string] $Value) {
             $this.Value = $Value
         }
         #endregion
 
         #region [eString] Value
-        [eHelpSynopsis('Creates a new eString object with the specified eString value.')]
-        [eHelpDescription('This constructor creates a new eString object using the specified eString value.')]
-        [eHelpParameter('Value', '[eString] The eString value to use when initializing the eString object.')]
-        [eHelpExample(@'
-PS> $str = [eString]::new($eStr)
-
-Creates a new eString object with the value of the eString object $eStr
-'@)]
-        [eHelpNotes('')]
-        [eHelpLink('')]
         eString([eString] $Value) {
             $this.Value = $Value.Value
         }
@@ -134,6 +113,7 @@ Creates a new eString object with the value of the eString object $eStr
         [eString] AddIndent() {
             return [eString]::AddIndent($this.Value, [eString]::IndentSize)
         }
+
 
         [eString] AddIndent([int] $IndentSize) {
             return [eString]::AddIndent($this.Value, $IndentSize)
@@ -181,7 +161,6 @@ Creates a new eString object with the value of the eString object $eStr
             return [eString]::AddNewLine($Value.Value, $NewlineAdd)
         }
 
-        # $NewlineAdd can be [eNewlineAdd]::Before, [eNewlineAdd]::After or [eNewlineAdd]::Both
         static [eString] AddNewLine([string] $Value, [eNewlineAdd] $NewlineAdd) {
             $newValue = $Value
             if ($NewlineAdd -band [eNewlineAdd]::Before) {$newValue = "`n$newValue"}
@@ -193,7 +172,6 @@ Creates a new eString object with the value of the eString object $eStr
         #--------------------------------------------
         #region Chars
         #--------------------------------------------
-        # Returns the character at a specified position in the current string
         [char] Chars([int] $Index) {
             if ($Index -lt 0 -or $Index -ge $this.Value.Length) {
                 throw [System.ArgumentOutOfRangeException]::new("index", "Index must be within the bounds of the string.")
@@ -219,7 +197,6 @@ Creates a new eString object with the value of the eString object $eStr
         #--------------------------------------------
         #region Contains
         #--------------------------------------------
-        # Determines if the current string contains a search value
         [bool] Contains([string] $Value) {
             return $this.Value.Contains($Value)
         }
@@ -236,7 +213,6 @@ Creates a new eString object with the value of the eString object $eStr
         #--------------------------------------------
         #region ConvertToComment
         #--------------------------------------------
-        # Converts the current string to a powershell comment
         [eString] ConvertToComment() {
             return [eString]::ConvertToComment($this.Value)
         }
@@ -253,7 +229,6 @@ Creates a new eString object with the value of the eString object $eStr
         #--------------------------------------------
         #region EndsWith
         #--------------------------------------------
-        # Determines if the current string ends with a value
         [bool] EndsWith([string] $Value) {
             return $this.Value.EndsWith($Value)
         }
@@ -270,7 +245,6 @@ Creates a new eString object with the value of the eString object $eStr
         #--------------------------------------------
         #region Equals
         #--------------------------------------------
-        # Determines if the current string is equal to a value
         [bool] Equals([string] $Value) {
             return $this.Value.Equals($Value)
         }
@@ -282,12 +256,15 @@ Creates a new eString object with the value of the eString object $eStr
         static [bool] Equals([eString] $Value, [string] $SearchValue) {
             return $Value.Value.Equals($SearchValue)
         }
+
+        static [bool] Equals([eString] $Value, [eString] $SearchValue) {
+            return $Value.Value.Equals($SearchValue.Value)
+        }
         #endregion
 
         #--------------------------------------------
         #region Length
         #--------------------------------------------
-        # Returns the length of the current string
         [int] Length() {
             return $this.Value.Length            
         }
@@ -304,7 +281,6 @@ Creates a new eString object with the value of the eString object $eStr
         #--------------------------------------------
         #region PadLeft
         #--------------------------------------------
-        # Pads the current string on the left
         [eString] PadLeft([int] $TotalWidth) {
             return [eString]::PadLeft($this.Value, $TotalWidth, ' ')
         }
@@ -333,7 +309,6 @@ Creates a new eString object with the value of the eString object $eStr
         #--------------------------------------------
         #region PadRight
         #--------------------------------------------
-        # Pads the current string on the right
         [eString] PadRight([int] $TotalWidth) {
             return [eString]::PadRight($this.Value, $TotalWidth, ' ')
         }
@@ -362,7 +337,6 @@ Creates a new eString object with the value of the eString object $eStr
         #--------------------------------------------
         #region Remove
         #--------------------------------------------
-        # Removes a specified number of characters from the current string
         [eString] Remove([int] $StartIndex) {
             return [eString]::Remove($this.Value, $StartIndex)
         }
@@ -391,7 +365,6 @@ Creates a new eString object with the value of the eString object $eStr
         #--------------------------------------------
         #region Replace
         #--------------------------------------------
-        # Replaces a specified value in the current string
         [eString] Replace([string] $OldValue, [string] $NewValue) {
             return [eString]::Replace($this.Value, $OldValue, $NewValue)
         }
@@ -419,6 +392,50 @@ Creates a new eString object with the value of the eString object $eStr
 
         static [eString] ReplaceLineEndings([eString] $Value) {
             return [eString]::ReplaceLineEndings($Value.Value)
+        }
+        #endregion
+
+        #--------------------------------------------
+        #region SetClipboard
+        #--------------------------------------------
+        # Sets the current string to the clipboard
+        [void] SetClipboard() {
+            $this.Value | Set-Clipboard
+        }
+
+        # Overload to passthru the value as eString
+        [eString] SetClipboard([bool] $Passthru) {
+            $this.Value | Set-Clipboard
+            if ($Passthru) {
+                return $this
+            } else {
+                return $null
+            }
+        }
+
+        # Static overload for setting a string to the clipboard
+        static [void] SetClipboard([eString]$Value) {
+            Set-Clipboard -Value $Value.Value
+        }
+
+        # Static overload for setting an eString to the clipboard and passing the value through
+        static [eString] SetClipboard([eString]$Value, [bool] $Passthru) {
+            Set-Clipboard -Value $Value.Value
+            if ($Passthru) {
+                return $Value
+            } else {
+                return $null
+            }
+        }
+
+        # Static overload for setting a string to the clipboard and passing the value through
+        static [eString] SetClipboard([string]$Value, [bool] $Passthru) {
+            Set-Clipboard -Value $Value
+            if ($Passthru) {
+                return [eString]::new($Value)
+            } else {
+                return $null
+            }
         }
         #endregion
 
@@ -652,6 +669,10 @@ Creates a new eString object with the value of the eString object $eStr
     }
     #endregion 
 
+    #--------------------------------------------
+    #region eLineBuilder
+    #--------------------------------------------
+    # Utility class to generate lines of various types like separators, dividers, etc.
     class eLineBuilder {
         # Utility class to generate lines of various types like separators, dividers, etc.
 
@@ -1276,7 +1297,34 @@ Creates a new eString object with the value of the eString object $eStr
         #endregion
 
     }
+    #endregion
 
+    #--------------------------------------------
+    #region eBlock
+    #--------------------------------------------
+    # Class to generate nested block lines for formatting/separation, etc.
+    #
+#    PS D:\OneDrive - 1E\Documents\PowerShell\Modules> $blk = [eBlock]::new()
+#    PS D:\OneDrive - 1E\Documents\PowerShell\Modules> $blk.GetBlockLine(1,'Top','CLASS DEFINITION')
+#    
+#    ████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████
+#    ██ CLASS DEFINITION                                                                                                   ██
+#    PS D:\OneDrive - 1E\Documents\PowerShell\Modules> $blk.GetBlockLine(2,'Top','PROPERTIES')      
+#    
+#        ╔═══PROPERTIES═══════════════════════════════════════════════════════════════════════════════════════════════════╗
+#    PS D:\OneDrive - 1E\Documents\PowerShell\Modules> $blk.GetBlockLine(3,'Top','Value')      
+#    
+#            ┏━━━Value━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+#    PS D:\OneDrive - 1E\Documents\PowerShell\Modules> $blk.GetBlockLine(3,'Bottom','Value')
+#    
+#            ┗━━━Value━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+#    PS D:\OneDrive - 1E\Documents\PowerShell\Modules> $blk.GetBlockLine(2,'Bottom','PROPERTIES')
+#    
+#        ╚═══PROPERTIES═══════════════════════════════════════════════════════════════════════════════════════════════════╝
+#    PS D:\OneDrive - 1E\Documents\PowerShell\Modules> $blk.GetBlockLine(1,'Bottom','CLASS DEFINITION')
+#    
+#    ██ CLASS DEFINITION                                                                                                   ██
+#    ████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████    
     class eBlock {
         #region Properties
         [int] $BlockWidth
@@ -1403,63 +1451,242 @@ Creates a new eString object with the value of the eString object $eStr
 
         #endregion
     }
+    #endregion
 
+    #--------------------------------------------
+    #region eVersion
+    #--------------------------------------------
+    # Class to generate version strings
+    class eVersion {
+        [System.Version] $Version
+
+        # DEFAULT CONSTRUCTOR
+        eVersion() {
+            $currentTime = Get-Date -AsUTC
+            
+            # format: A.B.C.D where:
+            # A = YYYYMM
+            # B = DDHH
+            # C = MMSS
+            # D = 1
+    
+            # A - Year and Month (6 digits)
+            $yearMonthSegment = ($currentTime.Year.ToString() + $currentTime.Month.ToString("00"))
+    
+            # B - Day and Hour (4 digits)
+            $dayHourSegment = ($currentTime.Day.ToString("00") + $currentTime.Hour.ToString("00"))
+    
+            # C - Minute and Second (4 digits)
+            $minuteSecondSegment = ($currentTime.Minute.ToString("00") + $currentTime.Second.ToString("00"))
+    
+            # D - Default to 1
+            $incrementingSegment = 1
+    
+            $this.Version = [System.Version]"$yearMonthSegment.$dayHourSegment.$minuteSecondSegment.$incrementingSegment"          
+        }
+
+        # DATETIME CONSTRUCTOR
+        eVersion([datetime] $dateTime) {
+            $currentTime = $dateTime
+            
+            # format: A.B.C.D where:
+            # A = YYYYMM
+            # B = DDHH
+            # C = MMSS
+            # D = 1
+    
+            # A - Year and Month (6 digits)
+            $yearMonthSegment = ($currentTime.Year.ToString() + $currentTime.Month.ToString("00"))
+    
+            # B - Day and Hour (4 digits)
+            $dayHourSegment = ($currentTime.Day.ToString("00") + $currentTime.Hour.ToString("00"))
+    
+            # C - Minute and Second (4 digits)
+            $minuteSecondSegment = ($currentTime.Minute.ToString("00") + $currentTime.Second.ToString("00"))
+    
+            # D - Default to 1
+            $incrementingSegment = 1
+    
+            $this.Version = [System.Version]"$yearMonthSegment.$dayHourSegment.$minuteSecondSegment.$incrementingSegment"          
+        }
+
+        # DATETIMEOFFSET CONSTRUCTOR
+        eVersion([datetimeoffset] $dateTimeOffset) {
+            $currentTime = $dateTimeOffset.UtcDateTime
+            
+            # format: A.B.C.D where:
+            # A = YYYYMM
+            # B = DDHH
+            # C = MMSS
+            # D = 1
+    
+            # A - Year and Month (6 digits)
+            $yearMonthSegment = ($currentTime.Year.ToString() + $currentTime.Month.ToString("00"))
+    
+            # B - Day and Hour (4 digits)
+            $dayHourSegment = ($currentTime.Day.ToString("00") + $currentTime.Hour.ToString("00"))
+    
+            # C - Minute and Second (4 digits)
+            $minuteSecondSegment = ($currentTime.Minute.ToString("00") + $currentTime.Second.ToString("00"))
+    
+            # D - Default to 1
+            $incrementingSegment = 1
+    
+            $this.Version = [System.Version]"$yearMonthSegment.$dayHourSegment.$minuteSecondSegment.$incrementingSegment"          
+        }
+
+        # VERSION CONSTRUCTOR
+        eVersion([System.Version] $version) {
+            $this.Version = $version
+        }
+
+        # STRING CONSTRUCTOR
+        eVersion([string] $version) {
+            $this.Version = [System.Version]$version
+        }
+
+        # MAJOR, MINOR, BUILD, REVISION CONSTRUCTOR
+        eVersion([int] $major, [int] $minor, [int] $build, [int] $revision) {
+            $this.Version = [System.Version]::new($major,$minor,$build,$revision)
+        }
+
+        # MAJOR, MINOR, BUILD CONSTRUCTOR
+        eVersion([int] $major, [int] $minor, [int] $build) {
+            $this.Version = [System.Version]$major,$minor,$build
+        }
+
+        # MAJOR, MINOR CONSTRUCTOR
+        eVersion([int] $major, [int] $minor) {
+            $this.Version = [System.Version]$major,$minor
+        }
+
+        # MAJOR CONSTRUCTOR
+        eVersion([int] $major) {
+            $this.Version = [System.Version]$major
+        }
+
+        # ToDateTime
+        [datetime] ToDateTime() {
+            $year = [int]($this.Version.Major / 100)
+            $month = [int]($this.Version.Major % 100)
+            $day = [int]($this.Version.Minor / 100)
+            $hour = [int]($this.Version.Minor % 100)
+            $minute = [int]($this.Version.Build / 100)
+            $second = [int]($this.Version.Build % 100)
+            return [datetime]::new($year, $month, $day, $hour, $minute, $second)
+        }
+
+        # ToString
+        [string] ToString() {
+            return $this.Version.ToString()
+        }
+
+        # Increment
+        [eVersion] Increment() {
+            return [eVersion]::new($this.Version.Major, $this.Version.Minor, $this.Version.Build, $this.Version.Revision + 1)
+        }
+    }
+    #endregion
+
+    #--------------------------------------------
+    #region eHelp
+    #--------------------------------------------
+    # Class to generate help documentation for a class using reflection and eHelpAttribute attributes
     class eHelp {
+        static [System.Reflection.BindingFlags] $BindingFlags = `
+            [System.Reflection.BindingFlags]::Public -bor `
+            [System.Reflection.BindingFlags]::NonPublic -bor `
+            [System.Reflection.BindingFlags]::Instance -bor `
+            [System.Reflection.BindingFlags]::Static -bor `
+            [System.Reflection.BindingFlags]::DeclaredOnly
+
         # This class is used to get help documentation for a class
         static [eString] GetHelp([object] $target) {
+            if ($target -is [type]) {
+                return [eHelp]::ProcessType($target, [eHelp]::BindingFlags)
+            }
+            else {
+                return [eHelp]::ProcessType($target.GetType(), [eHelp]::BindingFlags)
+            }
+        }
 
+        static [eString] GetHelp([object] $target, [System.Reflection.BindingFlags] $bindingFlags) {
+            return [eHelp]::ProcessType($target, $bindingFlags)
+        }
+
+        hidden static [string] ProcessType ([type] $type, [System.Reflection.BindingFlags] $bindingFlags = [eHelp]::BindingFlags) {
             $sb = [System.Text.StringBuilder]::new()
-            $type = $target.GetType()
-            # Create a new block object for formatting the help output into pretty nested line blocks. 
-            $blk = [eBlock]::new(120, 2, [eNewlineAdd]::Before) # 120 characters wide at the most, 2 spaces of indentation, and a newline before each block for spacing
+            $blk = [eBlock]::new(120, 2, [eNewlineAdd]::Before)
 
-            # BindingFlags to specify that you only want items declared in the class itself
-            $bindingFlags = [System.Reflection.BindingFlags]::Public -bor [System.Reflection.BindingFlags]::NonPublic -bor [System.Reflection.BindingFlags]::Instance -bor [System.Reflection.BindingFlags]::DeclaredOnly
-
-            # Get the documentation for the class
             [void]$sb.AppendLine($blk.GetBlockLine(1,'Top', $type.Name))
             [void]$sb.AppendLine($blk.GetBlockLine(2,'Top','CLASS DOCUMENTATION'))
             $Attributes = $type.GetCustomAttributes($true)
             foreach ($Attribute in $Attributes) {
-                #[void]$sb.AppendLine("`n$(Add-Indentation $Attribute.ToString() -IndentSize 4)")
                 [void]$sb.AppendLine([eString]::new($Attribute.ToString()).AddIndent(4).AddNewLine([eNewlineAdd]::Before))
             }
             [void]$sb.AppendLine($blk.GetBlockLine(2,'Bottom','CLASS DOCUMENTATION'))
 
-            # Get the documentation for the class's properties
             [void]$sb.AppendLine($blk.GetBlockLine(2,'Top','CLASS PROPERTIES'))
             $Properties = $type.GetProperties()
+            $getSetList = $Properties | ForEach-Object{"get_$($_.Name)";"set_$($_.Name)"}
             foreach ($Property in $Properties) {
+                [void]$sb.AppendLine($blk.GetBlockLine(3,'Top',$Property.Name))
                 $Attributes = $Property.GetCustomAttributes($true)
-                foreach ($Attribute in $Attributes) {
-                    #[void]$sb.AppendLine("`n$(Add-Indentation $Attribute.ToString() -IndentSize 4)")
-                    [void]$sb.AppendLine([eString]::new($Attribute.ToString()).AddIndent(4).AddNewLine([eNewlineAdd]::Before))
+                if ([string]::IsNullOrEmpty($Attributes)) {
+                    [void]$sb.AppendLine([eString]::new(".PROPERTY " + $Property.Name + '[' + $Property.PropertyType + ']').AddIndent(6).AddNewLine([eNewlineAdd]::Before)) # Append property type
                 }
+                foreach ($Attribute in $Attributes) {
+                    [void]$sb.AppendLine([eString]::new($Attribute.ToString()).AddIndent(6).AddNewLine([eNewlineAdd]::Before))
+                }
+                [void]$sb.AppendLine($blk.GetBlockLine(3,'Bottom',$Property.Name))
             }
             [void]$sb.AppendLine($blk.GetBlockLine(2,'Bottom','CLASS PROPERTIES'))
+    
 
-            # Get the documentation for the class's methods
             [void]$sb.AppendLine($blk.GetBlockLine(2,'Top','CLASS METHODS'))
-            $Methods = $type.GetMethods($bindingFlags)
+            $Methods = $type.GetMethods($bindingFlags) | Where-Object { $getSetList -notcontains $_.Name }
             foreach ($Method in $Methods) {
+                [void]$sb.AppendLine($blk.GetBlockLine(3,'Top',$Method.Name))
                 $Attributes = $Method.GetCustomAttributes($true)
-                if ($Attributes.Count -gt 0) {
-                    #[void]$sb.AppendLine((New-Separator -Type SingleTop -Length 74 -Name $Method.Name -NewLineBefore -IndentSize 4))
-                    [void]$sb.AppendLine($blk.GetBlockLine(3,'Top',$Method.Name))
-                    foreach ($Attribute in $Attributes) {
-                        #[void]$sb.AppendLine("`n$(Add-Indentation $Attribute.ToString() -IndentSize 6)")
-                        [void]$sb.AppendLine([eString]::new($Attribute.ToString()).AddIndent(6).AddNewLine([eNewlineAdd]::Before))
-                    }
-                    #[void]$sb.AppendLine((New-Separator -Type SingleBottom -Length 74 -Name $Method.Name -NewLineBefore -IndentSize 4))
-                    [void]$sb.AppendLine($blk.GetBlockLine(3,'Bottom',$Method.Name))
-                }
+                foreach ($Attribute in $Attributes) {
+                    [void]$sb.AppendLine([eString]::new($Attribute.ToString()).AddIndent(6).AddNewLine([eNewlineAdd]::Before))
+                }        
+                [void]$sb.AppendLine($blk.GetBlockLine(3,'Bottom',$Method.Name))
             }
             [void]$sb.AppendLine($blk.GetBlockLine(2,'Bottom','CLASS METHODS'))
             [void]$sb.AppendLine($blk.GetBlockLine(1,'Bottom', $type.Name))
 
-            return [eString]::new($sb.ToString())
+            return $sb.ToString()
         }
-    }    
+    }
+    #endregion
+
+    #endregion
+#╚═══BASE═════════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+
+#╔═══LOG══════════════════════════════════════════════════════════════════════════════════════════════════════════════╗
+    #region
+
+    #--------------------------------------------
+    #region eLogContext
+    #--------------------------------------------
+    # Class to represent a log context
+    class [eLogContext] {
+        # Properties
+        [eLog] $Log
+        
+    }
+
+    #endregion
+#╚═══LOG══════════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+
+
+
+
+#╔═══BASE═════════════════════════════════════════════════════════════════════════════════════════════════════════════╗
+    #region
+    # This region contains the base classes that are used throughout the eClasses module
+
 
     class eEncryption {
         # Class to handle hashing/encryption of strings
@@ -1605,134 +1832,5 @@ Creates a new eString object with the value of the eString object $eStr
         }
     }    
 
-    class eVersion {
-        [System.Version] $Version
-
-        # DEFAULT CONSTRUCTOR
-        eVersion() {
-            $currentTime = Get-Date -AsUTC
-            
-            # format: A.B.C.D where:
-            # A = YYYYMM
-            # B = DDHH
-            # C = MMSS
-            # D = 1
-    
-            # A - Year and Month (6 digits)
-            $yearMonthSegment = ($currentTime.Year.ToString() + $currentTime.Month.ToString("00"))
-    
-            # B - Day and Hour (4 digits)
-            $dayHourSegment = ($currentTime.Day.ToString("00") + $currentTime.Hour.ToString("00"))
-    
-            # C - Minute and Second (4 digits)
-            $minuteSecondSegment = ($currentTime.Minute.ToString("00") + $currentTime.Second.ToString("00"))
-    
-            # D - Default to 1
-            $incrementingSegment = 1
-    
-            $this.Version = [System.Version]"$yearMonthSegment.$dayHourSegment.$minuteSecondSegment.$incrementingSegment"          
-        }
-
-        # DATETIME CONSTRUCTOR
-        eVersion([datetime] $dateTime) {
-            $currentTime = $dateTime
-            
-            # format: A.B.C.D where:
-            # A = YYYYMM
-            # B = DDHH
-            # C = MMSS
-            # D = 1
-    
-            # A - Year and Month (6 digits)
-            $yearMonthSegment = ($currentTime.Year.ToString() + $currentTime.Month.ToString("00"))
-    
-            # B - Day and Hour (4 digits)
-            $dayHourSegment = ($currentTime.Day.ToString("00") + $currentTime.Hour.ToString("00"))
-    
-            # C - Minute and Second (4 digits)
-            $minuteSecondSegment = ($currentTime.Minute.ToString("00") + $currentTime.Second.ToString("00"))
-    
-            # D - Default to 1
-            $incrementingSegment = 1
-    
-            $this.Version = [System.Version]"$yearMonthSegment.$dayHourSegment.$minuteSecondSegment.$incrementingSegment"          
-        }
-
-        # DATETIMEOFFSET CONSTRUCTOR
-        eVersion([datetimeoffset] $dateTimeOffset) {
-            $currentTime = $dateTimeOffset.UtcDateTime
-            
-            # format: A.B.C.D where:
-            # A = YYYYMM
-            # B = DDHH
-            # C = MMSS
-            # D = 1
-    
-            # A - Year and Month (6 digits)
-            $yearMonthSegment = ($currentTime.Year.ToString() + $currentTime.Month.ToString("00"))
-    
-            # B - Day and Hour (4 digits)
-            $dayHourSegment = ($currentTime.Day.ToString("00") + $currentTime.Hour.ToString("00"))
-    
-            # C - Minute and Second (4 digits)
-            $minuteSecondSegment = ($currentTime.Minute.ToString("00") + $currentTime.Second.ToString("00"))
-    
-            # D - Default to 1
-            $incrementingSegment = 1
-    
-            $this.Version = [System.Version]"$yearMonthSegment.$dayHourSegment.$minuteSecondSegment.$incrementingSegment"          
-        }
-
-        # VERSION CONSTRUCTOR
-        eVersion([System.Version] $version) {
-            $this.Version = $version
-        }
-
-        # STRING CONSTRUCTOR
-        eVersion([string] $version) {
-            $this.Version = [System.Version]$version
-        }
-
-        # MAJOR, MINOR, BUILD, REVISION CONSTRUCTOR
-        eVersion([int] $major, [int] $minor, [int] $build, [int] $revision) {
-            $this.Version = [System.Version]::new($major,$minor,$build,$revision)
-        }
-
-        # MAJOR, MINOR, BUILD CONSTRUCTOR
-        eVersion([int] $major, [int] $minor, [int] $build) {
-            $this.Version = [System.Version]$major,$minor,$build
-        }
-
-        # MAJOR, MINOR CONSTRUCTOR
-        eVersion([int] $major, [int] $minor) {
-            $this.Version = [System.Version]$major,$minor
-        }
-
-        # MAJOR CONSTRUCTOR
-        eVersion([int] $major) {
-            $this.Version = [System.Version]$major
-        }
-
-        # ToDateTime
-        [datetime] ToDateTime() {
-            $year = [int]($this.Version.Major / 100)
-            $month = [int]($this.Version.Major % 100)
-            $day = [int]($this.Version.Minor / 100)
-            $hour = [int]($this.Version.Minor % 100)
-            $minute = [int]($this.Version.Build / 100)
-            $second = [int]($this.Version.Build % 100)
-            return [datetime]::new($year, $month, $day, $hour, $minute, $second)
-        }
-
-        # ToString
-        [string] ToString() {
-            return $this.Version.ToString()
-        }
-
-        # Increment
-        [eVersion] Increment() {
-            return [eVersion]::new($this.Version.Major, $this.Version.Minor, $this.Version.Build, $this.Version.Revision + 1)
-        }
-    }        
     #endregion
 #╚═══BASE═════════════════════════════════════════════════════════════════════════════════════════════════════════════╝

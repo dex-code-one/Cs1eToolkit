@@ -20,31 +20,57 @@
 #
 #    Here's an example of how to attach help documentation to a class using eHelp
 #
-#    [eHelpSynopsis('Simple calculator class for basic arithmetic operations.')]
-#    [eHelpDescription('This class provides basic arithmetic operations such as addition.')]
-#    [eHelpNotes('This is a demo class for illustrating the use of eHelpAttributes for documentation.')]
-#    [eHelpLink('https://example.com/CalculatorHelp')]
+#    [eHelpAttribute(@'
+#    .SYNOPSIS
+#    This is a sample class that demonstrates how to use eHelp attributes to document a class.
+#    .DESCRIPTION
+#    This class provides basic arithmetic operations such as addition.
+#    .LINK
+#    https://example.com/CalculatorHelp
+#    '@)]
 #    class Calculator {
-#        [eHelpProperty('property1', 'This is a sample property.')]
+#        [eHelpAttribute(@'
+#        .PROPERTY property1 [string]
+#        This is a sample property that demonstrates how to use eHelp attributes to document a property.
+#        '@)]
 #        [string] $property1
 #
+#        [eHelpAttribute(@'
+#        .SYNOPSIS
+#        Empty constructor.
+#        .DESCRIPTION
+#        This constructor does nothing.
+#        '@)]
 #        Calculator() {}
 #
-#        # Method to add two numbers with documentation
-#        [eHelpSynopsis('Adds two numbers and returns the sum.')]
-#        [eHelpDescription('This method takes two integers as input and returns their sum.')]
-#        [eHelpParameter('num1', 'The first number to add.')]
-#        [eHelpParameter('num2', 'The second number to add.')]
-#        [eHelpExample(@'
-#    PS> $calc = [Calculator]::new()
-#    PS> $calc.Add(5, 4)
-#    9
-#    '@)]
+#        [eHelpAttribute(@'
+#        .SYNOPSIS
+#        Adds two numbers and returns the sum.
+#        .DESCRIPTION
+#        This method takes two integers as input and returns their sum.
+#        .PARAMETER num1 [int]
+#        The first number to add.
+#        .PARAMETER num2 [int]
+#        The second number to add.
+#        .EXAMPLE
+#        $calc = [Calculator]::new()
+#        $calc.Add(5, 4)
+#        9
+#        .NOTES
+#        This is a sample note.
+#        .LINK
+#        https://example.com/CalculatorAddHelp
+#        '@)]
 #        [int] Add([int] $num1, [int] $num2) {
 #            return $num1 + $num2
 #        }
 #
-#        # Help method to get the help documentation for the class
+#        [eHelpAttribute(@'
+#        .SYNOPSIS
+#        Displays the help for this class.
+#        .DESCRIPTION
+#        This method displays the help for this class.
+#        '@)]
 #        [string] Help() {
 #            return [eHelp]::GetHelp($this)
 #        }
@@ -65,127 +91,6 @@
         public eHelpAttribute(string content)
         {
             this.Content = content;
-        }
-    }
-    
-    // This class is the base class for all named-attribute eHelp attributes
-    public class eHelpNamedAttribute : Attribute
-    {
-        public string Name { get; set; }
-        public string Content { get; set; }
-    
-        public eHelpNamedAttribute(string name, string content)
-        {
-            this.Name = name;
-            this.Content = content;
-        }
-    }
-
-    // This class is the base class for all named-attribute eHelp attributes that require a type (like parameters)
-    public class eHelpTypedAttribute : eHelpNamedAttribute
-    {
-        public string TypeName { get; set; }
-    
-        public eHelpTypedAttribute(string name, string content, string typeName) : base(name, content)
-        {
-            this.TypeName = typeName;
-        }
-    }
-        
-    // This class is used to attach a help synopsis to a class
-    public class eHelpSynopsis : eHelpAttribute
-    {
-        public eHelpSynopsis() : base("") { }
-        public eHelpSynopsis(string content) : base(content) { }
-    
-        public override string ToString()
-        {
-            return ".SYNOPSIS\n" + this.Content;
-        }
-    }
-    
-    // This class is used to attach a help description to a class
-    public class eHelpDescription : eHelpAttribute
-    {
-        public eHelpDescription() : base("") { }
-        public eHelpDescription(string content) : base(content) { }
-    
-        public override string ToString()
-        {
-            return ".DESCRIPTION\n" + this.Content;
-        }
-    }
-    
-    // This class is used to attach a help notes section to a class
-    public class eHelpNotes : eHelpAttribute
-    {
-        public eHelpNotes() : base("") { }
-        public eHelpNotes(string content) : base(content) { }
-    
-        public override string ToString()
-        {
-            return ".NOTES\n" + this.Content;
-        }
-    }
-    
-    // This class is used to attach a help link to a class
-    public class eHelpLink : eHelpAttribute
-    {
-        public eHelpLink() : base("") { }
-        public eHelpLink(string content) : base(content) { }
-    
-        public override string ToString()
-        {
-            return ".LINK\n" + this.Content;
-        }
-    }
-    
-    // This class is used to attach a parameter's help to a class
-    public class eHelpParameter : eHelpTypedAttribute
-    {
-        public eHelpParameter() : base("", "", "object") { }
-        public eHelpParameter(string name, string content) : base(name, content, "object") { }
-        public eHelpParameter(string name, string content, string typeName) : base(name, content, typeName) { }
-    
-        public override string ToString()
-        {
-            return ".PARAMETER " + this.Name + " [" + this.Type + "]\n" + this.Content;
-        }
-    }
-    
-    // This class is used to attach an example to a class
-    public class eHelpExample : eHelpAttribute
-    {
-        public eHelpExample() : base("") { }
-        public eHelpExample(string content) : base(content) { }
-    
-        public override string ToString()
-        {
-            return ".EXAMPLE\n" + this.Content;
-        }
-    }
-    
-    // This class is used to attach a property's help to a class
-    public class eHelpProperty : eHelpNamedAttribute
-    {
-        public eHelpProperty() : base("", "") { }
-        public eHelpProperty(string name, string content) : base(name, content) { }
-    
-        public override string ToString()
-        {
-            return ".PROPERTY " + this.Name + "\n" + this.Content;
-        }
-    }
-
-    // This class is used to attach a return value's help to a class
-    public class eHelpOutputs : eHelpAttribute
-    {
-        public eHelpOutputs() : base("") { }
-        public eHelpOutputs(string content) : base(content) { }
-    
-        public override string ToString()
-        {
-            return ".RETURN\n" + this.Content;
         }
     }
 
