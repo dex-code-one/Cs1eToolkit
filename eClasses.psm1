@@ -1,6 +1,6 @@
 
 #╔═ CLASSES ════════════════════════════════════════════════════════════════════════════════════════════════════════════╗
-    #region    
+        
 
     #TextAlignment enum
     #------------------------------------------------------------------------------------------------------------------
@@ -103,6 +103,7 @@
         # $indent = [Defaults]::Indent
         # etc.
         static [System.Text.Encoding] $Encoding = [System.Text.Encoding]::Unicode
+        static [int] $LogicalCores = [System.Environment]::ProcessorCount
         static [string] $FieldSeparator = "`u{200B}`t"
         static [string] $RecordSeparator = "`u{200B}`n"
         static [string] $ZeroWidthSpace = "`u{200B}"
@@ -126,6 +127,103 @@
             'Warn' = 'Yellow'
             'Error' = 'Red'
             'Fatal' = 'Magenta'
+        }
+    }
+
+    class Find {
+        # This class is used to find files and folders on the local system
+        # Find::File('*.txt')
+        # Find::Directory('C:\Windows')
+        # Find::FirstFile('*SQLite.dll')
+        # Find::FirstDirectory('C:\Windows\System32')
+        # Find::FixedDrives()
+        # Find::MostFreeDisk()
+        # Find::LastFile('*SQLite.dll')
+        # Find::LastDirectory('C:\Windows\System32')
+        # Find::FileWithString('*.txt','password')
+        # Find::FirstFileWithString('*.txt','password')
+
+        #Directory
+        #------------------------------------------------------------------------------------------------------------------
+        static [System.IO.DirectoryInfo[]] Directory([string] $Filter) {
+            return [Find]::FixedDrives() |
+                Where-Object {$_.Name -like '?:\'} |
+                    ForEach-Object {Get-ChildItem -Path $_.Name -Recurse -Directory -ErrorAction SilentlyContinue -Force -Filter $Filter}
+        }
+
+        #File
+        #------------------------------------------------------------------------------------------------------------------
+        static [System.IO.FileInfo[]] File([string] $Filter) {
+            return [Find]::FixedDrives() |
+                Where-Object {$_.Name -like '?:\'} |
+                    ForEach-Object {Get-ChildItem -Path $_.Name -Recurse -File -ErrorAction SilentlyContinue -Force -Filter $Filter}
+        }
+
+        #FirstDirectory
+        #------------------------------------------------------------------------------------------------------------------
+        static [System.IO.DirectoryInfo] FirstDirectory([string] $Filter) {
+            return [Find]::FixedDrives() |
+                Where-Object {$_.Name -like '?:\'} |
+                    ForEach-Object {Get-ChildItem -Path $_.Name -Recurse -Directory -ErrorAction SilentlyContinue -Force -Filter $Filter} |
+                        Select-Object -First 1
+        }
+
+        #FirstFile
+        #------------------------------------------------------------------------------------------------------------------
+        static [System.IO.FileInfo] FirstFile([string] $Filter) {
+            return [Find]::FixedDrives() |
+                Where-Object {$_.Name -like '?:\'} |
+                    ForEach-Object {Get-ChildItem -Path $_.Name -Recurse -File -ErrorAction SilentlyContinue -Force -Filter $Filter} |
+                        Select-Object -First 1
+        }
+
+        #FirstFileWithString
+        #------------------------------------------------------------------------------------------------------------------
+        static [System.IO.FileInfo] FirstFileWithString([string] $Filter, [string] $Pattern) {
+            return [Find]::FixedDrives() |
+                Where-Object {$_.Name -like '?:\'} |
+                    ForEach-Object {Get-ChildItem -Path $_.Name -Recurse -File -ErrorAction SilentlyContinue -Force -Filter $Filter} |
+                        Where-Object {(Select-String -Path $_ -Pattern $pattern -Quiet)} |
+                            Select-Object -First 1
+        }
+
+        #FileWithString
+        #------------------------------------------------------------------------------------------------------------------
+        static [System.IO.FileInfo[]] FileWithString([string] $Filter, [string] $Pattern) {
+            return [Find]::FixedDrives() |
+                Where-Object {$_.Name -like '?:\'} |
+                    ForEach-Object {Get-ChildItem -Path $_.Name -Recurse -File -ErrorAction SilentlyContinue -Force -Filter $Filter} |
+                        Where-Object {(Select-String -Path $_ -Pattern $pattern -Quiet)}
+        }
+
+        #FixedDrives
+        #------------------------------------------------------------------------------------------------------------------
+        static [System.IO.DriveInfo[]] FixedDrives() {
+            return [System.IO.DriveInfo]::GetDrives() | Where-Object {$_.DriveType -in 3,6}
+        }
+
+        #LastDirectory
+        #------------------------------------------------------------------------------------------------------------------
+        static [System.IO.DirectoryInfo] LastDirectory([string] $Filter) {
+            return [Find]::FixedDrives() |
+                Where-Object {$_.Name -like '?:\'} |
+                    ForEach-Object {Get-ChildItem -Path $_.Name -Recurse -Directory -ErrorAction SilentlyContinue -Force -Filter $Filter} |
+                        Select-Object -Last 1
+        }
+
+        #LastFile
+        #------------------------------------------------------------------------------------------------------------------
+        static [System.IO.FileInfo] LastFile([string] $Filter) {
+            return [Find]::FixedDrives() |
+                Where-Object {$_.Name -like '?:\'} |
+                    ForEach-Object {Get-ChildItem -Path $_.Name -Recurse -File -ErrorAction SilentlyContinue -Force -Filter $Filter} |
+                        Select-Object -Last 1
+        }
+
+        #MostFreeDrive
+        #------------------------------------------------------------------------------------------------------------------
+        static [System.IO.DriveInfo] MostFreeDrive() {
+            return [Find]::FixedDrives() | Sort-Object -Property AvailableFreeSpace -Descending | Select-Object -First 1
         }
     }
     
@@ -438,13 +536,7 @@
             return [Encryption]::ROT13($data).Reverse().FromBase64()
         }
     }
-    
-    #LogContext class
-    #------------------------------------------------------------------------------------------------------------------
-    class LogContext {
-
-    }
-    
+        
 
     #Log class
     #------------------------------------------------------------------------------------------------------------------
@@ -554,52 +646,85 @@
                 catch {
                     # if the log isn't found at all, return true
                     return $true
-                }
-
-
-    
+                }    
         }
 
     }
     
-    #endregion
+    
 #╚════════════════════════════════════════════════════════════════════════════════════════════════════════════ CLASSES ═╝
 
 #╔═ EXTEND String ══════════════════════════════════════════════════════════════════════════════════════════════════════╗
-    #region
-
-    # This section extends the System.String class with additional common properties and methods
+    
 
     #AddIndent
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName AddIndent -Force -Value {
         param([int] $indent = 4)
         $this -replace '(?m)^', (' ' * $indent)
-    }
-    
+    }    
 
     #BlockComment
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName BlockComment -Force -Value {
         param([string] $blockOpen = '/*', [string] $blockClose = '*/')
         "$blockOpen`n$this`n$blockClose"
-    }
-    
+    }    
 
     #Comment
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName Comment -Force -Value {
         param([string] $commentChar = '#')
         $this -replace '(?m)^', $commentChar
-    }
-    
+    }    
 
     #FromBase64
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName FromBase64 -Force -Value {
         [Defaults]::Encoding.GetString([Convert]::FromBase64String($this ?? ''))
     }
+
+    #GetDirectory
+    #------------------------------------------------------------------------------------------------------------------
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName GetDirectory -Force -Value {
+        [Find]::Directory($this)
+    }
+
+    #GetFile
+    #------------------------------------------------------------------------------------------------------------------
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName GetFile -Force -Value {
+        [Find]::File($this)
+    }
+
+    #GetFirstDirectory
+    #------------------------------------------------------------------------------------------------------------------
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName GetFirstDirectory -Force -Value {
+        [Find]::FirstDirectory($this)
+    }
     
+    #GetFirstFile
+    #------------------------------------------------------------------------------------------------------------------
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName GetFirstFile -Force -Value {
+        [Find]::FirstFile($this)
+    }
+
+    #GetLastFile
+    #------------------------------------------------------------------------------------------------------------------
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName GetLastFile -Force -Value {
+        [Find]::LastFile($this)
+    }
+
+    #GetFirstDirectory
+    #------------------------------------------------------------------------------------------------------------------
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName GetLastDirectory -Force -Value {
+        [Find]::FirstDirectory($this)
+    }
+
+    #GetLastDirectory
+    #------------------------------------------------------------------------------------------------------------------
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName GetLastDirectory -Force -Value {
+        [Find]::LastDirectory($this)
+    }
 
     #FromHex
     #------------------------------------------------------------------------------------------------------------------
@@ -828,13 +953,10 @@
         [Encryption]::Deobfuscate($this)
     }
 
-    #endregion    
+        
 #╚══════════════════════════════════════════════════════════════════════════════════════════════════════ EXTEND String ═╝
 
 #╔═ EXTEND BYTE[] ══════════════════════════════════════════════════════════════════════════════════════════════════════╗
-    #region
-
-    # This section extends the System.Byte[] class with additional common properties and methods
 
     #ToBase64
     #------------------------------------------------------------------------------------------------------------------
@@ -904,13 +1026,11 @@
         $hash
     }
 
-    #endregion    
+        
 #╚══════════════════════════════════════════════════════════════════════════════════════════════════════ EXTEND BYTE[] ═╝
 
-#╔═ EXTEND Hashtable ═══════════════════════════════════════════════════════════════════════════════════════════════════╗
-    #region
 
-    # This section extends the System.Collections.Hashtable class with additional common properties and methods
+#╔═ EXTEND Hashtable ═══════════════════════════════════════════════════════════════════════════════════════════════════╗
 
     # MD5
     #------------------------------------------------------------------------------------------------------------------
@@ -974,13 +1094,10 @@
         $xml.OuterXml
     }    
 
-    #endregion
+    
 #╚═══════════════════════════════════════════════════════════════════════════════════════════════════ EXTEND Hashtable ═╝
 
 #╔═ EXTEND OrderedDictionary ═══════════════════════════════════════════════════════════════════════════════════════════╗
-    #region
-
-    # This section extends the System.Collections.Specialized.OrderedDictionary class with additional common properties and methods
 
     # MD5
     #------------------------------------------------------------------------------------------------------------------
@@ -1044,13 +1161,11 @@
         $xml.OuterXml
     }
         
-    #endregion
+    
 #╚═══════════════════════════════════════════════════════════════════════════════════════════ EXTEND OrderedDictionary ═╝
 
 #╔═ EXTEND SecureString ════════════════════════════════════════════════════════════════════════════════════════════════╗    
-    #region
-    # This section extends the System.Security.SecureString class with additional common properties and methods
-
+    
     #MD5
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.Security.SecureString -MemberType ScriptProperty -MemberName MD5 -Force -Value {
@@ -1084,13 +1199,10 @@
         [Encryption]::Hash($this, 'SHA512')
     }
 
-    #endregion    
+        
 #╚════════════════════════════════════════════════════════════════════════════════════════════════ EXTEND SecureString ═╝
 
 #╔═ EXTEND PSCredential ════════════════════════════════════════════════════════════════════════════════════════════════╗
-    #region
-    # This section extends the System.Management.Automation.PSCredential class with additional common properties and methods
 
-
-    #endregion    
+        
 #╚════════════════════════════════════════════════════════════════════════════════════════════════ EXTEND PSCredential ═╝
