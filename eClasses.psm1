@@ -1,16 +1,28 @@
 
 #╔═ CLASSES ════════════════════════════════════════════════════════════════════════════════════════════════════════════╗
-        
+    #region
 
-    #TextAlignment enum
+    #BinaryOutputType enum
     #------------------------------------------------------------------------------------------------------------------
-    enum TextAlignment {
-        # This enum is used to specify text alignment
-        Left
-        Center
-        Right
+    enum BinaryOutputType {
+        # This enum is used to specify the output format for binary data (hashes, etc.)
+        None
+        Hex
+        Base64
+        Base85
+        Base85Alternate
     }
-    
+
+    #HashAlgorithm enum
+    #------------------------------------------------------------------------------------------------------------------
+    enum HashAlgorithm {
+        MD5
+        SHA1
+        SHA256
+        SHA384
+        SHA512
+    }
+
 
     #LineStyle enum
     #------------------------------------------------------------------------------------------------------------------
@@ -20,6 +32,80 @@
         Heavy
         Double
         Thick
+    }
+
+    #LogLevel enum
+    #------------------------------------------------------------------------------------------------------------------
+    enum LogLevel {
+        # This enum is used to specify the log level
+        Debug
+        Info
+        Warn
+        Error
+        Fatal
+    }
+
+
+    #TextAlignment enum
+    #------------------------------------------------------------------------------------------------------------------
+    enum TextAlignment {
+        # This enum is used to specify text alignment
+        Left
+        Center
+        Right
+    }
+
+    #Base85 class
+    #------------------------------------------------------------------------------------------------------------------
+    class Base85 {
+
+        # these are the default characters for base85 encoding using RFC1924
+        hidden static [char[]]$EncodingCharacters = [char[]]('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!#$%&()*+-;<=>?@^_`{|}~')
+        # these are alternate characters for base85 encoding featuring letters, numbers and european diacritics without special characters or punctuation
+        hidden static [char[]]$AlternateEncodingCharacters = [char[]]('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÀÁÂÃÄÅÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØ')
+        # Methods
+        # ------------------------------------------------------------------------------------------------------------------
+
+        # Encode
+        static [string] Encode ([string]$ValueToEncode) {
+            return [Base85]::Encode([System.Text.Encoding]::UTF8.GetBytes($ValueToEncode), [Base85]::EncodingCharacters)
+        }
+
+        static [string] Encode ([string]$ValueToEncode, [bool]$UseAlternateCharacters) {
+            $currChars = if ($UseAlternateCharacters) { [Base85]::AlternateEncodingCharacters } else { [Base85]::EncodingCharacters }
+            return [Base85]::Encode([System.Text.Encoding]::UTF8.GetBytes($ValueToEncode), [char[]]$currChars)
+        }
+
+        static [string] Encode ([byte[]]$BytesToEncode) {
+            return [Base85]::Encode($BytesToEncode, [Base85]::EncodingCharacters)
+        }
+
+        static [string] Encode ([byte[]]$BytesToEncode, [bool]$UseAlternateCharacters) {
+            $currChars = if ($UseAlternateCharacters) { [Base85]::AlternateEncodingCharacters } else { [Base85]::EncodingCharacters }
+            return [Base85]::Encode($BytesToEncode, [char[]]$currChars)
+        }
+
+        static [string] Encode([byte[]]$BytesToEncode, [char[]]$EncodingCharacters) {
+            if ($EncodingCharacters.Length -ne 85) { throw [System.ArgumentException]::new('EncodingCharacters is not 85 characters') }
+            $output = New-Object System.Text.StringBuilder
+            for ($i = 0; $i -lt $BytesToEncode.Length; $i += 4) {
+                $val = 0
+                for ($j = 0; $j -lt 4; $j++) {
+                    $val = $val * 256
+                    if ($i + $j -lt $BytesToEncode.Length) {
+                        $val += $BytesToEncode[$i + $j]
+                    }
+                }
+                $chunk = New-Object char[] 5
+                for ($k = 4; $k -ge 0; $k--) {
+                    $chunk[$k] = $EncodingCharacters[$val % 85]
+                    $val = [math]::Floor($val / 85)
+                }
+                $actualChunkSize = [math]::Min(5, $BytesToEncode.Length - $i + 1)
+                $output.Append($chunk, 0, $actualChunkSize)
+            }
+            return $output.ToString()
+        }
     }
     
 
@@ -92,35 +178,40 @@
         static [string] $TopTee = '██'
         static [string] $BottomTee = '██'
         static [string] $Cross = '██'
-    }
-    
+    }   
 
     #Defaults class
     #------------------------------------------------------------------------------------------------------------------
     class Defaults {
         # This static class is used to hold default values for the module.  You don't need to instantiate this class.
-        # $encoding = [Defaults]::Encoding
+        # $encoding = [System.Text.Encoding]::UTF8
         # $indent = [Defaults]::Indent
         # etc.
-        static [System.Text.Encoding] $Encoding = [System.Text.Encoding]::Unicode
-        static [int] $LogicalCores = [System.Environment]::ProcessorCount
-        static [string] $FieldSeparator = "`u{200B}`t"
-        static [string] $RecordSeparator = "`u{200B}`n"
-        static [string] $ZeroWidthSpace = "`u{200B}"
-        static [string] $Base64Separator = ';'  #don't make this the same as the HexSeparator
-        static [string] $HexSeparator = ','     #don't make this the same as the Base64Separator
+        static [System.Text.Encoding] $Encoding = [System.Text.Encoding]::UTF8
+        static [string] $EncodingName = [Defaults]::GetEncodingName()
+        static [string] $FieldSeparator = "`u{200B} " # Zero-width space and a space
+        static [string] $RecordSeparator = "`u{2063}`n" # Invisible separator and a newline
         static [int] $Indent = 4
         static [int] $ConsoleWidth = 120
         static [LineStyle] $LineStyle = [LineStyle]::Double
         static [int] $TextAlignment = [TextAlignment]::Left
+        static [HashAlgorithm] $HashAlgorithm = 'MD5'
+        static [BinaryOutputType] $BinaryOutputType = 'Base64'
         static [int] $EncryptionKeySize = 256
         static [int] $EncryptionIVSize = 128
         static [int] $EncryptionIterations = 100000
         static [int] $ObfuscationKeySize = 128
         static [int] $ObfuscationIVSize = 128
         static [int] $ObfuscationIterations = 10
-        static [byte[]] $ObfuscationString = [Defaults]::Encoding.GetBytes('HppjmX3CBynZzbLIE8kLC/NRJ8Z5zLLF') # for obfuscating (insecurely encrypting) data without having to provide a password
-        static [System.IO.FileInfo]$DefaultLogDirectory = [System.IO.Path]::Combine($env:TEMP, '1E\CsLogs')
+        static [byte[]] $ObfuscationString = [System.Text.Encoding]::UTF8.GetBytes('HppjmX3CBynZzbLIE8kLC/NRJ8Z5zLLF') # for obfuscating data
+        static [System.IO.FileInfo]$LogDirectory = [System.IO.Path]::Combine($env:TEMP, '1E\Logs')
+        static [System.IO.FileInfo]$LogFallbackDirectory = $env:TEMP
+        static [string]$LogPrefix = '1e.CustomerSuccess.'
+        static [string]$LogNamePattern = 'yyyyMMdd_HHmmss_fffffff'
+        static [string]$LogExtension = '.log'
+        static [int]$LogTailLines = 40
+        static [HashAlgorithm]$LogContextIDAlgorithm = 'MD5'
+        static [BinaryOutputType]$LogContextIDFormat = 'Base85Alternate'
         static [hashtable]$EchoColors = @{
             'Debug' = 'DarkGray'
             'Info' = 'Green'
@@ -128,105 +219,61 @@
             'Error' = 'Red'
             'Fatal' = 'Magenta'
         }
-    }
 
-    class Find {
-        # This class is used to find files and folders on the local system
-        # Find::File('*.txt')
-        # Find::Directory('C:\Windows')
-        # Find::FirstFile('*SQLite.dll')
-        # Find::FirstDirectory('C:\Windows\System32')
-        # Find::FixedDrives()
-        # Find::MostFreeDisk()
-        # Find::LastFile('*SQLite.dll')
-        # Find::LastDirectory('C:\Windows\System32')
-        # Find::FileWithString('*.txt','password')
-        # Find::FirstFileWithString('*.txt','password')
-
-        #Directory
-        #------------------------------------------------------------------------------------------------------------------
-        static [System.IO.DirectoryInfo[]] Directory([string] $Filter) {
-            return [Find]::FixedDrives() |
-                Where-Object {$_.Name -like '?:\'} |
-                    ForEach-Object {Get-ChildItem -Path $_.Name -Recurse -Directory -ErrorAction SilentlyContinue -Force -Filter $Filter}
-        }
-
-        #File
-        #------------------------------------------------------------------------------------------------------------------
-        static [System.IO.FileInfo[]] File([string] $Filter) {
-            return [Find]::FixedDrives() |
-                Where-Object {$_.Name -like '?:\'} |
-                    ForEach-Object {Get-ChildItem -Path $_.Name -Recurse -File -ErrorAction SilentlyContinue -Force -Filter $Filter}
-        }
-
-        #FirstDirectory
-        #------------------------------------------------------------------------------------------------------------------
-        static [System.IO.DirectoryInfo] FirstDirectory([string] $Filter) {
-            return [Find]::FixedDrives() |
-                Where-Object {$_.Name -like '?:\'} |
-                    ForEach-Object {Get-ChildItem -Path $_.Name -Recurse -Directory -ErrorAction SilentlyContinue -Force -Filter $Filter} |
-                        Select-Object -First 1
-        }
-
-        #FirstFile
-        #------------------------------------------------------------------------------------------------------------------
-        static [System.IO.FileInfo] FirstFile([string] $Filter) {
-            return [Find]::FixedDrives() |
-                Where-Object {$_.Name -like '?:\'} |
-                    ForEach-Object {Get-ChildItem -Path $_.Name -Recurse -File -ErrorAction SilentlyContinue -Force -Filter $Filter} |
-                        Select-Object -First 1
-        }
-
-        #FirstFileWithString
-        #------------------------------------------------------------------------------------------------------------------
-        static [System.IO.FileInfo] FirstFileWithString([string] $Filter, [string] $Pattern) {
-            return [Find]::FixedDrives() |
-                Where-Object {$_.Name -like '?:\'} |
-                    ForEach-Object {Get-ChildItem -Path $_.Name -Recurse -File -ErrorAction SilentlyContinue -Force -Filter $Filter} |
-                        Where-Object {(Select-String -Path $_ -Pattern $pattern -Quiet)} |
-                            Select-Object -First 1
-        }
-
-        #FileWithString
-        #------------------------------------------------------------------------------------------------------------------
-        static [System.IO.FileInfo[]] FileWithString([string] $Filter, [string] $Pattern) {
-            return [Find]::FixedDrives() |
-                Where-Object {$_.Name -like '?:\'} |
-                    ForEach-Object {Get-ChildItem -Path $_.Name -Recurse -File -ErrorAction SilentlyContinue -Force -Filter $Filter} |
-                        Where-Object {(Select-String -Path $_ -Pattern $pattern -Quiet)}
-        }
-
-        #FixedDrives
-        #------------------------------------------------------------------------------------------------------------------
-        static [System.IO.DriveInfo[]] FixedDrives() {
-            return [System.IO.DriveInfo]::GetDrives() | Where-Object {$_.DriveType -in 3,6}
-        }
-
-        #LastDirectory
-        #------------------------------------------------------------------------------------------------------------------
-        static [System.IO.DirectoryInfo] LastDirectory([string] $Filter) {
-            return [Find]::FixedDrives() |
-                Where-Object {$_.Name -like '?:\'} |
-                    ForEach-Object {Get-ChildItem -Path $_.Name -Recurse -Directory -ErrorAction SilentlyContinue -Force -Filter $Filter} |
-                        Select-Object -Last 1
-        }
-
-        #LastFile
-        #------------------------------------------------------------------------------------------------------------------
-        static [System.IO.FileInfo] LastFile([string] $Filter) {
-            return [Find]::FixedDrives() |
-                Where-Object {$_.Name -like '?:\'} |
-                    ForEach-Object {Get-ChildItem -Path $_.Name -Recurse -File -ErrorAction SilentlyContinue -Force -Filter $Filter} |
-                        Select-Object -Last 1
-        }
-
-        #MostFreeDrive
-        #------------------------------------------------------------------------------------------------------------------
-        static [System.IO.DriveInfo] MostFreeDrive() {
-            return [Find]::FixedDrives() | Sort-Object -Property AvailableFreeSpace -Descending | Select-Object -First 1
+        # GetEncodingName
+        static [string] GetEncodingName() {
+            $encodingMap = @{
+                "us-ascii" = 'ASCII'
+                "utf-16BE" = 'BigEndianUnicode'
+                "utf-16" = 'Unicode'
+                "utf-7" = 'UTF8'
+                "utf-8" = 'UTF8'
+            }
+            return $null -ne $encodingMap[([System.Text.Encoding]::UTF8.WebName)] ? $encodingMap[([System.Text.Encoding]::UTF8.WebName)] : 'UTF8'
         }
     }
+
+    #Device class
+    #------------------------------------------------------------------------------------------------------------------
+    class Device {
+        # This class is used to get information about the local system
+        [string]$Name
+        [string]$Ip
+        [string]$Manufacturer
+        [string]$Model
+        [string]$SerialNumber
     
+        # Constructors
+        # ------------------------------------------------------------------------------------------------------------------
+        Device([string]$name, [string]$ip, [string]$manufacturer, [string]$model, [string]$serialNumber) {
+            $this.Name = $name
+            $this.Ip = $ip
+            $this.Manufacturer = $manufacturer
+            $this.Model = $model
+            $this.SerialNumber = $serialNumber
+        }
+    
+        # Overload to get the device information with no parameters
+        Device() {
+            $this.Name = [System.Net.Dns]::GetHostEntry([System.Net.Dns]::GetHostName()).HostName
+            $this.Ip = try {Get-NetIPAddress -AddressFamily IPv4 -Type Unicast | Where-Object {$_.InterfaceAlias -notlike '*Loopback*' -and $_.PrefixOrigin -ne 'WellKnown'} | Sort-Object -Property InterfaceMetric -Descending | Select-Object -First 1 -ExpandProperty IPAddress} catch {''}
+            $this.Manufacturer = (Get-WmiObject -Class Win32_BaseBoard).Manufacturer
+            $this.Model = (Get-WmiObject -Class Win32_ComputerSystem).Model
+            $this.SerialNumber = (Get-WmiObject -Class Win32_BIOS).SerialNumber
+        }
+    
+        # Methods
+        # ------------------------------------------------------------------------------------------------------------------
+        [string] ToString() {
+            return ([ordered]@{
+                'DEVICE_NAME' = $this.Name
+                'DEVICE_IP' = $this.Ip
+                'DEVICE_MANUFACTURER' = $this.Manufacturer
+                'DEVICE_MODEL' = $this.Model
+                'DEVICE_SERIAL_NUMBER' = $this.SerialNumber
+            }).ToString()
+        }
+    }    
 
     #Draw class
     #------------------------------------------------------------------------------------------------------------------
@@ -382,8 +429,7 @@
             return $top + "`n" + $middle + "`n" + $bottom
         }
         
-    }
-    
+    }    
 
     #Encryption class
     #------------------------------------------------------------------------------------------------------------------
@@ -413,32 +459,6 @@
             return ConvertFrom-SecureString -SecureString (ConvertTo-SecureString $data -AsPlainText -Force) -Key ([Convert]::FromBase64String($keyBase64))
         }
         
-        # Hash
-        #------------------------------------------------------------------------------------------------------------------
-        # Generates a hash of a secure string using the specified algorithm
-        static [string] Hash ([securestring] $secureString, [string] $algorithm) {
-            if ($null -eq $secureString) { throw [System.ArgumentNullException]::new('secureString') }
-            $bytes = $null
-            $pointer = [System.Runtime.InteropServices.Marshal]::SecureStringToGlobalAllocUnicode($secureString)
-            try {
-                $length = $secureString.Length * 2
-                $bytes = New-Object byte[] -ArgumentList $length
-                [System.Runtime.InteropServices.Marshal]::Copy($pointer, $bytes, 0, $length)
-                # Calculate hash from bytes
-                $hash = [System.Security.Cryptography.HashAlgorithm]::Create($algorithm)
-                try {
-                    $hashBytes = $hash.ComputeHash($bytes)
-                    return -join ($hashBytes | ForEach-Object { $_.ToString("x2") })
-                } finally {
-                    $hash.Dispose()
-                }
-            } finally {
-                # Zero out the bytes array to securely clean up the data
-                if ($null -ne $bytes) {for ($i = 0; $i -lt $bytes.Length; $i++) { $bytes[$i] = 0 }}
-                [System.Runtime.InteropServices.Marshal]::ZeroFreeGlobalAllocUnicode($pointer)
-            }
-        }
-
     
         #NewAesKey
         #------------------------------------------------------------------------------------------------------------------
@@ -461,7 +481,7 @@
                 $length = $secureString.Length * 2
                 $bytes = New-Object byte[] -ArgumentList $length
                 [System.Runtime.InteropServices.Marshal]::Copy($pointer, $bytes, 0, $length)
-                $rdb = New-Object System.Security.Cryptography.Rfc2898DeriveBytes $bytes, ([Defaults]::Encoding.GetBytes([Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecureSalt)))), ([Defaults]::EncryptionIterations)
+                $rdb = New-Object System.Security.Cryptography.Rfc2898DeriveBytes $bytes, ([System.Text.Encoding]::UTF8.GetBytes([Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecureSalt)))), ([Defaults]::EncryptionIterations)
                 try {
                     return $rdb.GetBytes(32)
                 } finally {
@@ -481,41 +501,13 @@
     
         # Generates a new AES key using a string and salt
         static [byte[]] NewAesKey([string]$String,[string]$Salt) {
-            $rdb = New-Object System.Security.Cryptography.Rfc2898DeriveBytes ([Defaults]::Encoding.GetBytes($String)), ([Defaults]::Encoding.GetBytes($Salt)), ([Defaults]::EncryptionIterations)
+            $rdb = New-Object System.Security.Cryptography.Rfc2898DeriveBytes ([System.Text.Encoding]::UTF8.GetBytes($String)), ([System.Text.Encoding]::UTF8.GetBytes($Salt)), ([Defaults]::EncryptionIterations)
             try {
                 return $rdb.GetBytes(32)
             } finally {
                 if ($null -ne $rdb) {$rdb.Dispose()}
             }
         }        
-
-
-        # Obfuscate
-        #------------------------------------------------------------------------------------------------------------------
-        # Obfuscates a string
-        static [string] Obfuscate ([string] $data) {
-            return [Encryption]::ROT13($data.ToBase64().Reverse())
-        }
-
-        # Obfuscate a SecureString
-        static [string] Obfuscate ([SecureString] $secureString) {
-            $bytes = $null
-            $ptr = [System.Runtime.InteropServices.Marshal]::SecureStringToGlobalAllocUnicode($secureString)
-            try {
-                $bytes = New-Object byte[] ($secureString.Length * 2)
-                [System.Runtime.InteropServices.Marshal]::Copy($ptr, $bytes, 0, $bytes.Length)
-                try {
-                    return [Encryption]::ROT13([Defaults]::Encoding.GetString($bytes).ToBase64().Reverse())
-                }
-                finally {
-                    if ($null -ne $bytes) {for ($i = 0; $i -lt $bytes.Length; $i++) {$bytes[$i] = 0}}
-                }
-            }
-            finally {
-                [System.Runtime.InteropServices.Marshal]::ZeroFreeGlobalAllocUnicode($ptr)
-            }
-        }
-
 
         # ROT13
         #------------------------------------------------------------------------------------------------------------------
@@ -529,202 +521,911 @@
             return -join $rot13
         }
 
-        # Deobfuscate
+    }
+
+    #Find class
+    #------------------------------------------------------------------------------------------------------------------
+    class Find {
+        # This class is used to find files and folders on the local system
+        # Find::File('*.txt')
+        # Find::Directory('C:\Windows')
+        # Find::FirstFile('*SQLite.dll')
+        # Find::FirstDirectory('C:\Windows\System32')
+        # Find::FixedDrives()
+        # Find::MostFreeDisk()
+        # Find::LastFile('*SQLite.dll')
+        # Find::LastDirectory('C:\Windows\System32')
+        # Find::FileWithString('*.txt','password')
+        # Find::FirstFileWithString('*.txt','password')
+
+        #Directory
         #------------------------------------------------------------------------------------------------------------------
-        # Deobfuscates a string
-        static [string] Deobfuscate ([string] $data) {
-            return [Encryption]::ROT13($data).Reverse().FromBase64()
+        static [System.IO.DirectoryInfo[]] Directory([string] $Filter) {
+            return [Find]::FixedDrives() |
+                Where-Object {$_.Name -like '?:\'} |
+                    ForEach-Object {Get-ChildItem -Path $_.Name -Recurse -Directory -ErrorAction SilentlyContinue -Force -Filter $Filter}
+        }
+
+        #File
+        #------------------------------------------------------------------------------------------------------------------
+        static [System.IO.FileInfo[]] File([string] $Filter) {
+            return [Find]::FixedDrives() |
+                Where-Object {$_.Name -like '?:\'} |
+                    ForEach-Object {Get-ChildItem -Path $_.Name -Recurse -File -ErrorAction SilentlyContinue -Force -Filter $Filter}
+        }
+
+        #FirstDirectory
+        #------------------------------------------------------------------------------------------------------------------
+        static [System.IO.DirectoryInfo] FirstDirectory([string] $Filter) {
+            return [Find]::FixedDrives() |
+                Where-Object {$_.Name -like '?:\'} |
+                    ForEach-Object {Get-ChildItem -Path $_.Name -Recurse -Directory -ErrorAction SilentlyContinue -Force -Filter $Filter} |
+                        Select-Object -First 1
+        }
+
+        #FirstFile
+        #------------------------------------------------------------------------------------------------------------------
+        static [System.IO.FileInfo] FirstFile([string] $Filter) {
+            return [Find]::FixedDrives() |
+                Where-Object {$_.Name -like '?:\'} |
+                    ForEach-Object {Get-ChildItem -Path $_.Name -Recurse -File -ErrorAction SilentlyContinue -Force -Filter $Filter} |
+                        Select-Object -First 1
+        }
+
+        #FirstFileWithString
+        #------------------------------------------------------------------------------------------------------------------
+        static [System.IO.FileInfo] FirstFileWithString([string] $Filter, [string] $Pattern) {
+            return [Find]::FixedDrives() |
+                Where-Object {$_.Name -like '?:\'} |
+                    ForEach-Object {Get-ChildItem -Path $_.Name -Recurse -File -ErrorAction SilentlyContinue -Force -Filter $Filter} |
+                        Where-Object {(Select-String -Path $_ -Pattern $pattern -Quiet)} |
+                            Select-Object -First 1
+        }
+
+        #FileWithString
+        #------------------------------------------------------------------------------------------------------------------
+        static [System.IO.FileInfo[]] FileWithString([string] $Filter, [string] $Pattern) {
+            return [Find]::FixedDrives() |
+                Where-Object {$_.Name -like '?:\'} |
+                    ForEach-Object {Get-ChildItem -Path $_.Name -Recurse -File -ErrorAction SilentlyContinue -Force -Filter $Filter} |
+                        Where-Object {(Select-String -Path $_ -Pattern $pattern -Quiet)}
+        }
+
+        #FixedDrives
+        #------------------------------------------------------------------------------------------------------------------
+        static [System.IO.DriveInfo[]] FixedDrives() {
+            return [System.IO.DriveInfo]::GetDrives() | Where-Object {$_.DriveType -in 3,6}
+        }
+
+        #LastDirectory
+        #------------------------------------------------------------------------------------------------------------------
+        static [System.IO.DirectoryInfo] LastDirectory([string] $Filter) {
+            return [Find]::FixedDrives() |
+                Where-Object {$_.Name -like '?:\'} |
+                    ForEach-Object {Get-ChildItem -Path $_.Name -Recurse -Directory -ErrorAction SilentlyContinue -Force -Filter $Filter} |
+                        Select-Object -Last 1
+        }
+
+        #LastFile
+        #------------------------------------------------------------------------------------------------------------------
+        static [System.IO.FileInfo] LastFile([string] $Filter) {
+            return [Find]::FixedDrives() |
+                Where-Object {$_.Name -like '?:\'} |
+                    ForEach-Object {Get-ChildItem -Path $_.Name -Recurse -File -ErrorAction SilentlyContinue -Force -Filter $Filter} |
+                        Select-Object -Last 1
+        }
+
+        #MostFreeDrive
+        #------------------------------------------------------------------------------------------------------------------
+        static [System.IO.DriveInfo] MostFreeDrive() {
+            return [Find]::FixedDrives() | Sort-Object -Property AvailableFreeSpace -Descending | Select-Object -First 1
         }
     }
-        
+
+    #Hash class
+    #------------------------------------------------------------------------------------------------------------------
+    class Hash {
+        [byte[]]$OriginalBytes
+        [byte[]]$HashedBytes
+        [HashAlgorithm]$Algorithm
+        [BinaryOutputType]$BinaryOutputType = [Defaults]::BinaryOutputType
+
+        #Constructors
+        #------------------------------------------------------------------------------------------------------------------
+        Hash([string]$data) {
+            $this.OriginalBytes = [System.Text.Encoding]::UTF8.GetBytes($data)
+            $this.Algorithm = [Defaults]::HashAlgorithm
+            $this.HashedBytes = [Hash]::GetHash($this.OriginalBytes, $this.Algorithm)
+        }
+
+        Hash([string]$data, [HashAlgorithm]$algorithm) {
+            $this.OriginalBytes = [System.Text.Encoding]::UTF8.GetBytes($data)
+            $this.Algorithm = $algorithm
+            $this.HashedBytes = [Hash]::GetHash($this.OriginalBytes, $this.Algorithm)
+        }
+
+        Hash([string]$data, [HashAlgorithm]$algorithm, [BinaryOutputType]$binaryOutputType) {
+            $this.OriginalBytes = [System.Text.Encoding]::UTF8.GetBytes($data)
+            $this.Algorithm = $algorithm
+            $this.HashedBytes = [Hash]::GetHash($this.OriginalBytes, $this.Algorithm)
+            $this.BinaryOutputType = $binaryOutputType
+        }
+
+        Hash([securestring]$secureString) {
+            $this.OriginalBytes = $null
+            $this.Algorithm = [Defaults]::HashAlgorithm
+            $this.HashedBytes = [Hash]::GetHash($secureString, $this.Algorithm)
+        }
+
+        Hash([securestring]$secureString, [HashAlgorithm]$algorithm) {
+            $this.OriginalBytes = $null
+            $this.Algorithm = $algorithm
+            $this.HashedBytes = [Hash]::GetHash($secureString, $this.Algorithm)
+        }
+
+        Hash([securestring]$secureString, [HashAlgorithm]$algorithm, [BinaryOutputType]$binaryOutputType) {
+            $this.OriginalBytes = $null
+            $this.Algorithm = $algorithm
+            $this.HashedBytes = [Hash]::GetHash($secureString, $this.Algorithm)
+            $this.BinaryOutputType = $binaryOutputType
+        }
+
+        Hash([byte[]]$bytes) {
+            $this.OriginalBytes = $bytes
+            $this.Algorithm = [Defaults]::HashAlgorithm
+            $this.HashedBytes = [Hash]::GetHash($this.OriginalBytes, $this.Algorithm)
+        }
+
+        Hash([byte[]]$bytes, [HashAlgorithm]$algorithm) {
+            $this.OriginalBytes = $bytes
+            $this.Algorithm = $algorithm
+            $this.HashedBytes = [Hash]::GetHash($this.OriginalBytes, $this.Algorithm)
+        }
+
+        Hash([byte[]]$bytes, [HashAlgorithm]$algorithm, [byte[]]$hashedBytes) {
+            $this.OriginalBytes = $bytes
+            $this.Algorithm = $algorithm
+            $this.HashedBytes = $hashedBytes
+        }
+
+        Hash([byte[]]$bytes, [HashAlgorithm]$algorithm, [BinaryOutputType]$binaryOutputType) {
+            $this.OriginalBytes = $bytes
+            $this.Algorithm = $algorithm
+            $this.HashedBytes = [Hash]::GetHash($this.OriginalBytes, $this.Algorithm)
+            $this.BinaryOutputType = $binaryOutputType
+        }
+
+        # GetHash
+        #------------------------------------------------------------------------------------------------------------------
+        static [byte[]] GetHash([byte[]]$BytesToHash, [HashAlgorithm] $algorithm) {
+            $hash = [System.Security.Cryptography.HashAlgorithm]::Create($algorithm)
+            $hashValue = $null
+            try {$hashValue = $hash.ComputeHash($BytesToHash)}
+            finally {$hash.Dispose()}
+            return $hashValue
+        }
+
+        # Overload for GetHash using string
+        static [byte[]] GetHash([string]$StringToHash, [HashAlgorithm] $algorithm) {
+            return [Hash]::GetHash([System.Text.Encoding]::UTF8.GetBytes($StringToHash), $algorithm)
+        }
+
+        # Overload for GetHash using secure string
+        static [byte[]] GetHash([securestring]$SecureString, [HashAlgorithm] $algorithm) {
+            $hash = [System.Security.Cryptography.HashAlgorithm]::Create($algorithm)
+            $hashValue = $null
+            try {
+                $pointer = [System.Runtime.InteropServices.Marshal]::SecureStringToGlobalAllocUnicode($SecureString)
+                $length = $SecureString.Length * 2
+                $bytes = New-Object byte[] -ArgumentList $length
+                try {
+                    [System.Runtime.InteropServices.Marshal]::Copy($pointer, $bytes, 0, $length)
+                    $hashValue = $hash.ComputeHash($bytes)
+                } finally {
+                    # Zero out the bytes array to securely clean up the data
+                    if ($null -ne $bytes) {for ($i = 0; $i -lt $bytes.Length; $i++) { $bytes[$i] = 0 }}
+                    [System.Runtime.InteropServices.Marshal]::ZeroFreeGlobalAllocUnicode($pointer)
+                }
+                return $hashValue
+            }
+            finally {
+                $hash.Dispose()
+            }
+        }
+
+        # ToBase64String
+        #------------------------------------------------------------------------------------------------------------------
+        [string] ToBase64String() {
+            return [Convert]::ToBase64String($this.HashedBytes)
+        }
+
+        # ToHexString
+        #------------------------------------------------------------------------------------------------------------------
+        [string] ToHexString() {
+            return [BitConverter]::ToString($this.HashedBytes).Replace('-','')
+        }
+
+        # ToBase85String
+        #------------------------------------------------------------------------------------------------------------------
+        [string] ToBase85String() {
+            return [Base85]::Encode($this.HashedBytes)
+        }
+
+        # Overload for ToBase85String using alternate character set
+        [string] ToBase85String([bool]$UseAlternateCharacters) {
+            return [Base85]::Encode($this.HashedBytes, $UseAlternateCharacters)
+        }
+
+        # ToString
+        #------------------------------------------------------------------------------------------------------------------
+        [string] ToString() {
+            switch ($this.BinaryOutputType) {
+                'Base64' {return $this.ToBase64String()}
+                'Hex' {return $this.ToHexString()}
+                'Base85' {return $this.ToBase85String()}
+                'Base85Alternate' {return $this.ToBase85String($true)}
+                'None' {return [System.Text.Encoding]::UTF8.GetString($this.HashedBytes)}
+            }
+            return $null
+        }
+    }
+
+    #LogContext class
+    #------------------------------------------------------------------------------------------------------------------
+    class LogContext {
+        # This class is used to hold context information for logging
+        [string]$ID
+        [Device]$Device
+        [OS]$OS
+        [PowerShell]$PowerShell
+        [Process]$Process
+        [User]$User
+
+        #Constructors
+        #------------------------------------------------------------------------------------------------------------------
+        LogContext() {
+            $this.Device = [Device]::new()
+            $this.OS = [OS]::new()
+            $this.PowerShell = [PowerShell]::new()
+            $this.Process = [Process]::new()
+            $this.User = [User]::new()
+            $this.ID = ([Hash]::new($this.ToString(), 'MD5', 'Base85Alternate').ToString())
+        }
+
+        #Methods
+        #------------------------------------------------------------------------------------------------------------------
+        [string] ToString() {
+            return $this.Device.ToString()+"`n"+$this.OS.ToString()+"`n"+$this.PowerShell.ToString()+"`n"+$this.Process.ToString()+"`n"+$this.User.ToString()
+        }
+    }
 
     #Log class
     #------------------------------------------------------------------------------------------------------------------
     class Log {
-        #Properties
+        # Properties
         #==================================================================================================================
         [System.IO.FileInfo]$LogFile
-        [int32]$MaxLogSize = 10MB
-        [int32]$MaxLogCount = 5
+        [int32]$LogMaxBytes = 10MB
+        [int32]$LogMaxRollovers = 5
         [System.IO.FileInfo[]]$RolloverLogs
-        [int32]$TailLines = 40
+        [int32]$TailLines = [Defaults]::LogTailLines
         [ordered]$LoggingContext
         [System.DateTimeOffset]$InstantiatedTime = [System.DateTimeOffset]::Now
         [bool]$EchoMessages = $false
         [string]$FS = [Defaults]::FieldSeparator
         [string]$RS = [Defaults]::RecordSeparator
+        [HashAlgorithm]$ContextIDAlgorithm = [Defaults]::LogContextIDAlgorithm
+        [BinaryOutputType]$ContextIDFormat = [Defaults]::LogContextIDFormat
         [hashtable]$EchoColors = @{'Debug' = 'DarkGray';'Info' = 'Green';'Warn' = 'Yellow';'Error' = 'Red';'Fatal' = 'Magenta'}
-        
+        [LogContext]$Context
 
-        #Private Properties
+        # Private Properties
         #==================================================================================================================
-        hidden [System.Management.Automation.Host.PSHost] $host = $Host
-        hidden [System.Collections.Hashtable] $psVersionTable = $PSVersionTable
-        hidden [string] $PSScriptRoot = $PSScriptRoot
-        hidden [string] $PSCommandPath = $PSCommandPath
-        hidden [object] $os
-        hidden [string] $deviceIp
-        hidden [string] $userSid
-        hidden [int32] $sessionId
-        hidden [int32] $processId
-        hidden [string] $contextHash
-        
+        hidden [string]$encodingName = [System.Text.Encoding]::UTF8.WebName
+        hidden [System.IO.FileInfo]$cmTrace
 
-        #Constructors
+        # Constructors
         #==================================================================================================================
+
+        # New log with default name/location
         Log() {
+            $this.LogFile = $this.NewFileInfo($null)            
             $this.Initialize()
         }
+
+        # New log with specified name/location
+        Log([string]$logName) {
+            $this.LogFile = $this.NewFileInfo($logName)
+            $this.Initialize()
+        }        
         
         [void] Initialize() {
-                # Get the OS details
-                try{$this.os = Get-CimInstance Win32_OperatingSystem -Verbose:$false | Select-Object -Property Caption, Version, OSArchitecture, SystemDirectory, WindowsDirectory} catch{$this.os = @{Caption='';Version='';OSArchitecture='';SystemDirectory='';WindowsDirectory=''}}
+            # Make sure the log directory exists first, if not, force it to exist
+            if (-not (Test-Path -Path $this.LogFile.Directory)) {
+                try {
+                    New-Item -Path $this.LogFile.Directory -ItemType Directory -Force -ErrorAction Stop
+                }
+                catch {
+                    # If we can't create the log directory, use the fallback directory (%TEMP%\1e\CsLogs)
+                    Write-Warning "Unable to create log directory $($this.LogFile.Directory). Using fallback directory $([Defaults]::LogFallbackDirectory) instead"
+                    $this.LogFile = $this.NewFileInfo([System.IO.Path]::Combine([Log]::LogFallbackDirectory, $this.LogFile.Name))
+                    if (-not (Test-Path -Path $this.LogFile.Directory)) {
+                        try {
+                            New-Item -Path $this.LogFile.Directory -ItemType Directory -Force -ErrorAction Stop
+                        }
+                        catch {
+                            # If we can't create the log directory, fail
+                            throw "Unable to create log directory $($this.defaultDirectory) and fallback directory $($this.fallbackDirectory)"
+                        }
+                    }
+                }
+            }
 
-                # Get device IP
-                try {$this.deviceIp = Get-NetIPAddress -AddressFamily IPv4 -Type Unicast | Where-Object {$_.InterfaceAlias -notlike '*Loopback*' -and $_.PrefixOrigin -ne 'WellKnown'} | Sort-Object -Property InterfaceMetric -Descending | Select-Object -First 1 -ExpandProperty IPAddress} catch {$this.deviceIp = ''}
+            # Make sure the log file exists, if not, create it
+            if (-not (Test-Path -Path $this.LogFile.FullName)) {
+                try {
+                    Set-Content -Path $this.LogFile.FullName -Force -ErrorAction Stop -Encoding ([System.Text.Encoding]::UTF8) -Value ''
+                }
+                catch {
+                    # If we can't create the log file, fail
+                    throw "Unable to create log file $($this.LogFile.FullName)`n$_"
+                }
+            }
 
-                # Get user SID
-                try {$this.userSid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value} catch {$this.userSid = ''}
+            # Get the list of RollOver files
+            $this.RolloverLogs = Get-ChildItem -Path $this.LogFile.Directory -Filter "$($this.LogFile.BaseName).*$($this.LogFile.Extension)" -File |
+                Sort-Object -Property Name -Descending
 
-                # Get session ID
-                try {$this.sessionId = [System.Diagnostics.Process]::GetCurrentProcess().SessionId} catch {$this.sessionId = $null}
+            # Get the logging context
+            $this.Context = [LogContext]::new()
 
-                # Get process ID
-                try {$this.processId = [System.Diagnostics.Process]::GetCurrentProcess().Id} catch {$this.processId = $null}
-
-                # Get the 
+            # If the ContextID isn't already in the log, write the context to the log
+            try {$isFound = (Select-String -Path $this.LogFile.FullName -Pattern ($this.Context.ID) -Quiet -ErrorAction Stop)} catch {$isFound = $false}
+            if (-not $isFound) {
+                $this.Write('Info',"`n$([Draw]::BoxTop(' LOG_CONTEXT ', 'Double','Left'))`n$($this.Context.ToString())`n$([Draw]::BoxBottom(' LOG_CONTEXT ', 'Double','Right'))")
+            }
         }
         
 
-        #Methods
+        # Methods
         #==================================================================================================================
 
-        #GetContext
+        # Debug
         #------------------------------------------------------------------------------------------------------------------
-        hidden [ordered] GetContext() {
-                # Get the logging context
-                $this.LoggingContext = [ordered]@{
-                    LOG_NAME =                   $this.LogFile.Name
-                    LOG_BASE_NAME =              $this.LogFile.BaseName
-                    LOG_EXTENSION =              $this.LogFile.Extension
-                    LOG_FULL_NAME =              $this.LogFile.FullName
-                    LOG_DIRECTORY =              $this.LogFile.Directory
-                    LOG_MAX_BYTES =              $this.LogMaxBytes
-                    LOG_MAX_ROLLOVERS =          $this.LogMaxRollovers
-                    RECORD_SEPARATOR_UNICODE =   $this.StringEscape($this.RS)
-                    FIELD_SEPARATOR_UNICODE =    $this.StringEscape($this.FS)
-                    DEVICE_NAME =                $env:COMPUTERNAME
-                    DEVICE_IP =                  $this.deviceIp
-                    USER_SID =                   $this.userSid
-                    SESSION_ID =                 $this.sessionId
-                    SESSION_NAME =               $env:SESSIONNAME
-                    PROCESS_ID =                 $this.processId
-                    OS_NAME =                    $this.os.Caption
-                    OS_VERSION =                 $this.os.Version
-                    OS_ARCHITECTURE =            $this.os.OSArchitecture
-                    OS_SYSTEM_DIRECTORY =        $this.os.SystemDirectory
-                    OS_WINDOWS_DIRECTORY =       $this.os.WindowsDirectory
-                    POWERSHELL_HOST_NAME =       $this.host.Name
-                    POWERSHELL_HOST_VERSION =    $this.host.Version
-                    POWERSHELL_HOST_CULTURE =    $this.host.CurrentCulture
-                    POWERSHELL_HOST_UI_CULTURE = $this.host.CurrentUICulture
-                    POWERSHELL_VERSION =         $this.psVersionTable.PSVersion
-                    POWERSHELL_EDITION =         $this.psVersionTable.PSEdition
-                    SCRIPT_PATH =                $this.PSCommandPath
-                    SCRIPT_DIRECTORY =           $this.PSScriptRoot
-                    TAIL_LINES =                 $this.TailLines
-                }
-
-                # Update the context hash with the current context
-                $this.contextHash = $this.LoggingContext.MD5
-
-                # If the contextHash is already found in the log, return false, otherwise return true
-                try {
-                    $isFound = (Select-String -Path $this.LogFile.FullName -Pattern $this.contextHash -Quiet -ErrorAction Stop)
-                    return -Not $isFound
-                }
-                catch {
-                    # if the log isn't found at all, return true
-                    return $true
-                }    
+        [void] Debug([string] $Message) {
+            $this.Write('Debug', $Message)
         }
 
+        # Echo
+        #------------------------------------------------------------------------------------------------------------------
+        hidden [void] Echo([string] $Message, [string] $Level) {
+            Write-Host $Message -ForegroundColor $this.EchoColors[$Level] -NoNewline
+        }
+
+        # Error
+        #------------------------------------------------------------------------------------------------------------------
+        [void] Error([string] $Message) {
+            $this.Write('Error', $Message)
+        }
+
+        # Fatal
+        #------------------------------------------------------------------------------------------------------------------
+        [void] Fatal([string] $Message) {
+            $this.Write('Fatal', $Message)
+        }
+
+        # FindInLog
+        #------------------------------------------------------------------------------------------------------------------
+        [String[]] FindInLog([string] $Pattern) {
+            return $this.FindInLog($Pattern, '*', [DateTime]::MinValue, [DateTime]::MaxValue, '*')
+        }
+
+        # Finds a string in the log between two dates
+        [String[]] FindInLog([string] $Pattern, [DateTime] $Start, [DateTime] $End) {
+            return $this.FindInLog($Pattern, '*', $Start, $End, '*')
+        }
+        
+        # Finds a string in the log of a specific level
+        [String[]] FindInLog([string] $Pattern, [string] $Level) {
+            return $this.FindInLog($Pattern, $Level, [DateTime]::MinValue, [DateTime]::MaxValue, '*')
+        }
+
+        # Finds a string in the log with a specific level and contextHash between two dates
+        [String[]] FindInLog([string] $Pattern, [string] $Level, [DateTime] $Start, [DateTime] $End, [string]$ContextHash) {
+            # If the properties haven't been cleared, and the log exists, tail the log and return the result
+            if ($this.LogFile.FullName -and (Test-Path -Path $this.LogFile.FullName)) {
+                # Parse the log file into records using the record separator
+                return (Get-Content -Path $this.LogFile.FullName -Raw) -split $this.RS |
+                    # Pre-filter to return only those records that match the pattern somewhere on the line
+                    Where-Object {($_ -like $Pattern) -and ($_ -like "*$Level*") -and ($_ -like "*$ContextHash*")} |
+                        # Parse each record into fields using the field separator
+                        ForEach-Object {
+                            $fields = ($_ -split $log.FS).ForEach({$_.Trim()})
+                            if ($fields.Count -eq 4) {
+                                @{
+                                    TimeStamp = $fields[0]
+                                    ContextID = $fields[1]
+                                    Level = $fields[2]
+                                    Message = $fields[3]
+                                }
+                            }
+                        } | Where-Object {
+                            $_.Message -like $Pattern -and $_.Level -like $Level -and $_.ContextHash -like $ContextHash -and [DateTime]$_.TimeStamp -ge $Start -and [DateTime]$_.TimeStamp -le $End
+                        } # Only return those records that match the pattern in the message
+            } else {
+                return [String[]]@()
+            }                
+        }        
+
+        # GetContent
+        #------------------------------------------------------------------------------------------------------------------
+        [string] GetContent() {
+            # If the properties haven't been cleared, and the log exists, tail the log and return the result
+            if ($this.LogFile.FullName -and (Test-Path -Path $this.LogFile.FullName)) {
+                # Parse the log file into records using the record separator
+                return (Get-Content -Path $this.LogFile.FullName -Raw) -split $this.RS |
+                    # Remove empty records
+                    Where-Object {$_}
+                                    
+            } else {return [string[]]@()}
+        }
+
+        # GetDateRangeOfLog
+        #------------------------------------------------------------------------------------------------------------------
+        [ordered] GetDateRangeOfLog() {
+            # If the properties haven't been cleared, and the log exists
+            if ($this.LogFile.FullName -and (Test-Path -Path $this.LogFile.FullName)) {
+                # Get the date from the first record in the log
+                $first = ((Get-Content -Path $this.LogFile.FullName -First 1) -split $this.FS)[0]
+
+                # Get the date from the last record in the log
+                $last = (((Get-Content -Path $this.LogFile.FullName -Raw) -split $this.RS | Where-Object {$_} | Select-Object -Last 1) -split $this.FS)[0]
+
+                # Return the date range
+                return [ordered]@{
+                    First = [DateTimeOffset]::ParseExact($first, "yyyy-MM-dd HH:mm:ss.fffffff zzz", [System.Globalization.CultureInfo]::InvariantCulture)
+                    Last = [DateTimeOffset]::ParseExact($last, "yyyy-MM-dd HH:mm:ss.fffffff zzz", [System.Globalization.CultureInfo]::InvariantCulture)
+                    TimeSpan = [DateTimeOffset]::ParseExact($last, "yyyy-MM-dd HH:mm:ss.fffffff zzz", [System.Globalization.CultureInfo]::InvariantCulture) - [DateTimeOffset]::ParseExact($first, "yyyy-MM-dd HH:mm:ss.fffffff zzz", [System.Globalization.CultureInfo]::InvariantCulture)
+                }
+            }
+            else {
+                return [ordered]@{
+                    First = [DateTimeOffset]::MinValue
+                    Last = [DateTimeOffset]::MinValue
+                    TimeSpan = [DateTimeOffset]::MinValue - [DateTimeOffset]::MinValue
+                }
+            }
+        }
+
+        # Info
+        #------------------------------------------------------------------------------------------------------------------
+        [void] Info([string] $Message) {
+            $this.Write('Info', $Message)
+        }
+
+        # NewEntryString
+        #------------------------------------------------------------------------------------------------------------------
+        hidden [string] NewEntryString([LogLevel]$Level, [string]$Message) {
+            return "{0}{1}[{2}]{3}{4}{5}{6}{7}" -f [DateTimeOffset]::Now.ToString("yyyy-MM-dd HH:mm:ss.fffffff zzz"), $this.FS, $this.Context.ID, $this.FS, $Level, $this.FS, $Message, $this.RS
+        }
+
+        # NewFileInfo 
+        #------------------------------------------------------------------------------------------------------------------
+        hidden [System.IO.FileInfo] NewFileInfo([string] $Path) {
+            # Converts a string representing a path of somekind (like Name, FullName, BaseName) to a
+            # FileInfo object using defaults if there's not enough to make a [System.IO.FileInfo] object
+
+            # If the path is empty, set it to a default value of defaultPrefix + defaultExtension
+            if (-not $Path) {
+                $Path = [Defaults]::LogPrefix + (Get-Date -Format ([Defaults]::LogNamePattern) -AsUTC) + [Defaults]::LogExtension
+            }
+
+            # Get the parts of the path passed in so we know if we've been given a full path or just a file name
+            $directory = [System.IO.Path]::GetDirectoryName($Path)
+            $name = [System.IO.Path]::GetFileName($Path)
+            $extension = [System.IO.Path]::GetExtension($Path)
+
+            # If the log name doesn't have an extension, add default extension
+            if (-not $extension) {
+                $name = $name + [Defaults]::LogExtension
+            }
+
+            # If the log name doesn't have a directory, use the preferred log folder
+            if (-not $directory) {
+                $directory = [Defaults]::LogDirectory
+            }
+
+            # Return a new FileInfo object        
+            return [System.IO.FileInfo]::new([System.IO.Path]::Combine($directory, $name))
+        }
+
+        # OpenCmTrace
+        #------------------------------------------------------------------------------------------------------------------
+        [void] OpenCmTrace() {
+            # Using powershell, Find the first instance of CMTrace.exe and open a logfile with it
+            if ($null -eq $this.cmTrace) {
+                $this.cmTrace = [Find]::FirstFile('*CMTrace.exe')
+                if ($this.cmTrace) {
+                    Start-Process -FilePath $this.cmTrace.FullName -ArgumentList $this.LogFile.FullName
+                }
+            }
+        }
+
+        # OpenExplorer
+        #------------------------------------------------------------------------------------------------------------------
+        [void] OpenExplorer() {
+            # Open the log file in explorer
+            Start-Process -FilePath "explorer.exe" -ArgumentList "/select, `"$($this.LogFile.FullName)`""
+        }
+
+        # RollOver
+        #------------------------------------------------------------------------------------------------------------------
+        hidden [void] RollOver() {
+                # Get the existing rollover log files (rollover logs are named LogFolder\LogBaseName.*.log where * is a number from 1 to LogMaxRollovers)
+                $this.RolloverLogs = Get-ChildItem -Path $this.LogFile.Directory -Filter "$($this.LogFile.BaseName).*$($this.LogFile.Extension)" -File |
+                    Sort-Object -Property Name
+
+                # If the number of rollover logs is greater than or equal to LogMaxRollovers, delete the oldest rollover log
+                if ($this.RolloverLogs.Count -ge $this.LogMaxRollovers) {
+                    try {
+                        $this.RolloverLogs[-1].Delete()
+                    }
+                    catch {
+                        # If we can't delete the oldest rollover log, do nothing, we'll try to move the data below instead
+                    }
+                }
+
+                # Rename all the existing logs to the next highest number
+                for ($i = $this.LogMaxRollovers; $i -gt 1; $i--) {
+                    $oldLog = [System.IO.Path]::Combine($this.LogFile.Directory, "$($this.LogFile.BaseName).$($i - 1)$($this.LogFile.Extension)")
+                    $newLog = [System.IO.Path]::Combine($this.LogFile.Directory, "$($this.LogFile.BaseName).$($i)$($this.LogFile.Extension)")
+                    if (Test-Path -Path $oldLog) {
+                        Write-Verbose "Rolling over $oldLog --> $newLog"
+                        try {
+                            # try to rename the log file to the next highest rollover
+                            Rename-Item -Path $oldLog -NewName $newLog -Force -ErrorAction Stop
+                        }
+                        catch {
+                            # if we can't rename the log, try to copy its contents to the next highest rollover this is a last-ditch effort
+                            # to preserve the log contents if we can't rename the file for some reason like when the file is in use by 
+                            # another process or the folder it is in has delete protection but we can still write to the file. This is more 
+                            # disk intensive than a rename, but it's better than losing the log contents.
+                            $firstError = $_
+                            try {
+                                Get-Content -Path $oldLog -Raw -Force -ErrorAction Stop | Set-Content -Path $newLog -Force -ErrorAction Stop -Encoding $this.encodingName
+                            }
+                            catch {
+                                Write-Host $firstError
+                                Write-Host $_
+                                throw "Unable to rollover $oldLog --> $newLog"
+                            }
+                        }
+                    }
+                }
+
+                # Rename the current log to .1.log
+                $newLog = [System.IO.Path]::Combine($this.LogFile.Directory, "$($this.LogFile.BaseName).1$($this.LogFile.Extension)")
+                Write-Verbose "Rolling over $($this.LogFile.FullName) --> $newLog"
+                try {
+                    Rename-Item -Path $this.LogFile.FullName -NewName $newLog -Force -ErrorAction Stop
+                }
+                catch {
+                    $firstError = $_
+                    # if we can't rename the log, try to copy its contents to the archive
+                    try {
+                        Get-Content -Path $this.LogFile.FullName -Raw -Force -ErrorAction Stop | Set-Content -Path $newLog -Encoding $this.encodingName -Force -ErrorAction Stop
+                    }
+                    catch {
+                        Write-Error $firstError
+                        Write-Error $_
+                        throw "Unable to rollover $($this.LogFile.FullName) --> $newLog"
+                    }
+                    # clear the log file contents since we couldn't rename it
+                    Set-Content -Path $this.LogFile.FullName -Value '' -Force -Encoding $this.encodingName -ErrorAction Stop
+                }
+
+                # re-populate the list of rollover logs (this is a bit redundant, but it makes sure the list is for sure up to date)
+                $this.RolloverLogs = Get-ChildItem -Path $this.LogFile.Directory -Filter "$($this.LogFile.BaseName).*$($this.LogFile.Extension)" -File |
+                    Sort-Object -Property Name -Descending
+
+                # clear the context so the context will always be written to the new log
+                $this.Context = $null
+        }
+
+        # Size
+        #------------------------------------------------------------------------------------------------------------------
+        [int] Size() {
+            return (Get-Item -Path $this.LogFile.FullName).Length
+        }
+
+        # Tail
+        #------------------------------------------------------------------------------------------------------------------
+        [string[]] Tail([int] $lines) {
+            # If the properties haven't been cleared, and the log exists, tail the log and return the result
+            if ($this.LogFile.FullName -and (Test-Path -Path $this.LogFile.FullName)) {
+                # Parse the log file into records using the record separator
+                return (Get-Content -Path $this.LogFile.FullName -Raw) -split $this.RS |
+                    # Remove any empty records
+                    Where-Object {$_} |
+                        # Get the last $lines records
+                        Select-Object -Last $lines 
+            } else {
+                return [string[]]@()
+            }
+        }
+        
+        # ToString
+        #------------------------------------------------------------------------------------------------------------------
+        [string] ToString() {
+            return ([ordered]@{
+                LOG_NAME = $this.LogFile.Name
+                LOG_SIZE = $this.Size()
+                LOG_MAX_BYTES = $this.LogMaxBytes
+                LOG_MAX_ROLLOVERS = $this.LogMaxRollovers
+                LOG_TAIL_LINES = $this.TailLines
+                LOG_ECHO_MESSAGES = $this.EchoMessages
+                LOG_ENCODING = $this.encodingName
+                LOG_ROLLOVER_LOGS = $this.RolloverLogs.Count
+                LOG_INSTANTIATED_TIME = $this.InstantiatedTime.ToString("yyyy-MM-dd HH:mm:ss.fffffff zzz")
+                LOG_FIELD_SEPARATOR = $this.FS.ToEscapedString()
+                LOG_RECORD_SEPARATOR = $this.RS.ToEscapedString()
+                LOG_CONTEXT_ID = $this.Context.ID
+            }).ToString()
+        }
+
+        # Overload for Tail using default TailLines property
+        [string[]] Tail() {
+            return $this.Tail($this.TailLines)
+        }
+
+        # Warn
+        #------------------------------------------------------------------------------------------------------------------
+        [void] Warn([string] $Message) {
+            $this.Write('Warn', $Message)
+        }
+
+        # Write
+        #------------------------------------------------------------------------------------------------------------------
+        hidden [void] Write([LogLevel] $Level = 'Info', [string] $Message) {
+            # Build the log entry string
+            $msg = $this.NewEntryString($Level, $Message)
+            #see if the message will make the log exceed the LogMaxBytes property
+            $this.LogFile.Refresh() #refresh size info
+            if (([system.text.encoding]::utf8.GetByteCount($msg) + $this.LogFile.Length) -ge $this.LogMaxBytes) {
+                $this.RollOver() # if it will exceed the LogMaxBytes, rollover the log
+                #get the current logging context
+                $this.Context = [LogContext]::new()
+                #write the context to the log
+                $logDetails = "`n$([Draw]::BoxTop(' LOG_DETAILS ', 'Double','Left'))`n$($this.ToString())`n$([Draw]::BoxBottom(' LOG_DETAILS ', 'Double','Right'))"
+                $contextDetails = "`n$([Draw]::BoxTop(' LOG_CONTEXT ', 'Double','Left'))`n$($this.Context.ToString())`n$([Draw]::BoxBottom(' LOG_CONTEXT ', 'Double','Right'))"
+                $msg = $this.NewEntryString('Info',"$logDetails`n$contextDetails")
+                Out-File -FilePath $this.LogFile.FullName -InputObject $msg -Append -Encoding $this.encodingName -ErrorAction Stop -Force -NoNewline
+                #generate the log entry again, as the the original timestamp has changed
+                $msg = $this.NewEntryString($Level, $Message)
+            }
+            # Write the message to the log
+            Out-File -FilePath $this.LogFile.FullName -InputObject $msg -Append -Encoding $this.encodingName -ErrorAction Stop -Force -NoNewline
+
+            # Echo the message to the console if EchoMessages is true
+            if ($this.EchoMessages) {
+                $this.Echo($msg, $level)
+            }
+        }
+
+        # overload to write an array of messages
+        [void] Write([LogLevel] $Level = 'Info', [string[]] $Messages) {
+            foreach ($message in $Messages) {
+                $this.Write($Level, $message)
+            }
+        }
     }
+
+    #OS Class
+    #------------------------------------------------------------------------------------------------------------------
+    class OS {
+        # This class is used to get information about the current operating system
+        [string]$Name
+        [string]$Version
+        [string]$Architecture
+        [string]$SystemDirectory
+        [string]$WindowsDirectory
+        [string]$LastBootUpTime
+        [string]$OSLanguage
+        [string]$CurrentCulture
+        [string]$CurrentUICulture
+
+        #Constructors
+        #------------------------------------------------------------------------------------------------------------------
+        OS([string]$name, [string]$version, [string]$architecture, [string]$systemDirectory, [string]$windowsDirectory, [string]$lastBootUpTime, [string]$osLanguage, [string]$currentCulture, [string]$currentUICulture) {
+            $this.Name = $name
+            $this.Version = $version
+            $this.Architecture = $architecture
+            $this.SystemDirectory = $systemDirectory
+            $this.WindowsDirectory = $windowsDirectory
+            $this.LastBootUpTime = $lastBootUpTime
+            $this.OSLanguage = $osLanguage
+            $this.CurrentCulture = $currentCulture
+            $this.CurrentUICulture = $currentUICulture
+        }
+        
+        #overload to get the current OS
+        OS() {
+            $os = Get-CimInstance Win32_OperatingSystem -Verbose:$false | Select-Object -Property Caption, Version, OSArchitecture, SystemDirectory, WindowsDirectory, LastBootUpTime, OSLanguage 
+            $this.Name = $os.Caption
+            $this.Version = $os.Version
+            $this.Architecture = $os.OSArchitecture
+            $this.SystemDirectory = $os.SystemDirectory
+            $this.WindowsDirectory = $os.WindowsDirectory
+            $this.LastBootUpTime = $os.LastBootUpTime
+            $this.OSLanguage = $os.OSLanguage
+            $this.CurrentCulture = [System.Globalization.CultureInfo]::CurrentCulture.Name
+            $this.CurrentUICulture = [System.Globalization.CultureInfo]::CurrentUICulture.Name
+        }
+
+        #ToString
+        [string] ToString() {
+            return $this.ToString($false)
+        }
+
+        [string] ToString([bool]$sorted = $false) {
+            return ([ordered]@{
+                OS_NAME = $this.Name
+                OS_VERSION = $this.Version
+                OS_ARCHITECTURE = $this.Architecture
+                OS_SYSTEM_DIRECTORY = $this.SystemDirectory
+                OS_WINDOWS_DIRECTORY = $this.WindowsDirectory
+                OS_LAST_BOOT_UP_TIME = $this.LastBootUpTime
+                OS_LANGUAGE = $this.OSLanguage
+                OS_CURRENT_CULTURE = $this.CurrentCulture
+                OS_CURRENT_UI_CULTURE = $this.CurrentUICulture
+            }).ToString()
+        }
+    }
+
+    #PowerShell class
+    #------------------------------------------------------------------------------------------------------------------
+    class PowerShell {
+        # This class is used to get information about the current PowerShell session
+        [string]$Version
+        [string]$Edition
+        [string]$ScriptPath
+        [string]$ScriptDirectory
+
+        hidden $PSVersionTable = $PSVersionTable
+        hidden $PSScriptRoot = $PSScriptRoot
+        hidden $PSCommandPath = $PSCommandPath
+
+        #Constructors
+        #------------------------------------------------------------------------------------------------------------------
+        PowerShell([string]$version, [string]$edition) {
+            $this.Version = $version
+            $this.Edition = $edition
+        }
+
+        #overload to get the current PowerShell session
+        PowerShell() {
+            $this.Version = $this.PSVersionTable.PSVersion
+            $this.Edition = $this.PSVersionTable.PSEdition
+            $this.ScriptPath = $this.PSCommandPath
+            $this.ScriptDirectory = $this.PSScriptRoot
+        }
+
+        #ToString
+        [string] ToString() {
+            return ([ordered]@{
+                POWERSHELL_VERSION = $this.Version
+                POWERSHELL_EDITION = $this.Edition
+                POWERSHELL_SCRIPT_PATH = $this.ScriptPath
+                POWERSHELL_SCRIPT_DIRECTORY = $this.ScriptDirectory
+            }).ToString()
+        }
+    }
+
+    #Process class
+    #------------------------------------------------------------------------------------------------------------------
+    class Process {
+        # This class is used to get information about the current process
+        [string]$Name
+        [int]$Id
+        [int]$SessionId
+        [string]$SessionName
+
+        #Constructors
+        #------------------------------------------------------------------------------------------------------------------
+        Process([string]$name, [int]$id, [int]$sessionId, [string]$sessionName) {
+            $this.Name = $name
+            $this.Id = $id
+            $this.SessionId = $sessionId
+            $this.SessionName = $sessionName
+        }
+
+        #overload to get the current process
+        Process() {
+            $process = [System.Diagnostics.Process]::GetCurrentProcess()
+            $this.Name = $process.ProcessName
+            $this.Id = $process.Id
+            $this.SessionId = $process.SessionId
+            $this.SessionName = $env:SESSIONNAME
+        }
+
+        #ToString
+        [string] ToString() {
+            return ([ordered]@{
+                PROCESS_NAME = $this.Name
+                PROCESS_ID = $this.Id
+                PROCESS_SESSION_ID = $this.SessionId
+                PROCESS_SESSION_NAME = $this.SessionName
+            }).ToString()
+        }
+    }
+
+    #User class
+    #------------------------------------------------------------------------------------------------------------------
+    class User {
+        [string]$Name
+        [string]$Identifier
+
+        #Constructors
+        #------------------------------------------------------------------------------------------------------------------
+        User() {
+            $currUser = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+            $this.Name = $currUser.Name
+            $this.Identifier = $currUser.User.Value
+        }
+
+        User([string]$userName, [string]$identifier) {
+            $this.Name = $userName
+            $this.Identifier = $identifier
+        }
+
+        #Methods
+        #------------------------------------------------------------------------------------------------------------------
+        [string] ToString() {
+            return ([ordered]@{
+                USER_NAME = $this.Name
+                USER_IDENTIFIER = $this.Identifier
+            }).ToString()
+        }
+    }    
     
-    
+    #endregion
 #╚════════════════════════════════════════════════════════════════════════════════════════════════════════════ CLASSES ═╝
 
 #╔═ EXTEND String ══════════════════════════════════════════════════════════════════════════════════════════════════════╗
-    
+    #region
+
+    # This section extends the System.String class with additional common properties and methods
 
     #AddIndent
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName AddIndent -Force -Value {
         param([int] $indent = 4)
         $this -replace '(?m)^', (' ' * $indent)
-    }    
+    }
+    
 
     #BlockComment
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName BlockComment -Force -Value {
         param([string] $blockOpen = '/*', [string] $blockClose = '*/')
         "$blockOpen`n$this`n$blockClose"
-    }    
+    }
+    
 
     #Comment
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName Comment -Force -Value {
         param([string] $commentChar = '#')
         $this -replace '(?m)^', $commentChar
-    }    
+    }
+    
 
     #FromBase64
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName FromBase64 -Force -Value {
-        [Defaults]::Encoding.GetString([Convert]::FromBase64String($this ?? ''))
-    }
-
-    #GetDirectory
-    #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName GetDirectory -Force -Value {
-        [Find]::Directory($this)
-    }
-
-    #GetFile
-    #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName GetFile -Force -Value {
-        [Find]::File($this)
-    }
-
-    #GetFirstDirectory
-    #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName GetFirstDirectory -Force -Value {
-        [Find]::FirstDirectory($this)
+        [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($this ?? ''))
     }
     
-    #GetFirstFile
-    #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName GetFirstFile -Force -Value {
-        [Find]::FirstFile($this)
-    }
-
-    #GetLastFile
-    #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName GetLastFile -Force -Value {
-        [Find]::LastFile($this)
-    }
-
-    #GetFirstDirectory
-    #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName GetLastDirectory -Force -Value {
-        [Find]::FirstDirectory($this)
-    }
-
-    #GetLastDirectory
-    #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName GetLastDirectory -Force -Value {
-        [Find]::LastDirectory($this)
-    }
 
     #FromHex
     #------------------------------------------------------------------------------------------------------------------
@@ -738,6 +1439,12 @@
     Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName FromJson -Force -Value {
         $this | ConvertFrom-Json
     }
+
+    #Hash
+    #------------------------------------------------------------------------------------------------------------------
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName Hash -Force -Value {
+        param([string] $algorithm = ([Defaults]::HashAlgorithm), [BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
+    }
     
 
     #IsHex
@@ -750,14 +1457,13 @@
     #ToBase64
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName ToBase64 -Force -Value {
-        [Convert]::ToBase64String([Defaults]::Encoding.GetBytes($this ?? ''))
-    }
-    
+        [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($this ?? ''))
+    }    
 
     #ToByteArray
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName ToByteArray -Force -Value {
-        [Defaults]::Encoding.GetBytes($this ?? '')
+        [System.Text.Encoding]::UTF8.GetBytes($this ?? '')
     }
     
 
@@ -786,7 +1492,7 @@
     #ToHex
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName ToHex -Force -Value {
-        [System.BitConverter]::ToString([Defaults]::Encoding.GetBytes($this ?? '')).Replace('-','')
+        [System.BitConverter]::ToString([System.Text.Encoding]::UTF8.GetBytes($this ?? '')).Replace('-','')
     }
     
 
@@ -837,11 +1543,8 @@
     #MD5
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.String -MemberType ScriptProperty -MemberName MD5 -Force -Value {
-        $md5 = [System.Security.Cryptography.MD5]::Create()
-        try {$hash = [System.BitConverter]::ToString($md5.ComputeHash([Defaults]::Encoding.GetBytes($this ?? ''))).Replace('-','')}
-        catch {$hash = 'D41D8CD98F00B204E9800998ECF8427E'}
-        finally {$md5.Dispose()}
-        $hash
+        param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
+        [Hash]::new($this, 'MD5', $format)
     }
 
 
@@ -906,44 +1609,32 @@
     #SHA1
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.String -MemberType ScriptProperty -MemberName SHA1 -Force -Value {
-        $sha1 = [System.Security.Cryptography.SHA1]::Create()
-        try {$hash = [System.BitConverter]::ToString($sha1.ComputeHash([Defaults]::Encoding.GetBytes($this ?? ''))).Replace('-','')}
-        catch {$hash = 'DA39A3EE5E6B4B0D3255BFEF95601890AFD80709'}
-        finally {$sha1.Dispose()}
-        $hash
+        param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
+        [Hash]::new($this, 'SHA1', $format)
     }
     
 
     #SHA256
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.String -MemberType ScriptProperty -MemberName SHA256 -Force -Value {
-        $sha256 = [System.Security.Cryptography.SHA256]::Create()
-        try {$hash = [System.BitConverter]::ToString($sha256.ComputeHash([Defaults]::Encoding.GetBytes($this ?? ''))).Replace('-','')}
-        catch {$hash = 'E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855'}
-        finally {$sha256.Dispose()}
-        $hash
+        param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
+        [Hash]::new($this, 'SHA256', $format)
     }
     
 
     #SHA384
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.String -MemberType ScriptProperty -MemberName SHA384 -Force -Value {
-        $sha384 = [System.Security.Cryptography.SHA384]::Create()
-        try {$hash = [System.BitConverter]::ToString($sha384.ComputeHash([Defaults]::Encoding.GetBytes($this ?? ''))).Replace('-','')}
-        catch {$hash = '38B060A751AC96384CD9327EB1B1E36A21FDB71114BE07434C0CC7BF63F6E1DA274EDEBFE76F65FBD51AD2F14898B95B'}
-        finally {$sha384.Dispose()}
-        $hash
+        param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
+        [Hash]::new($this, 'SHA384', $format)
     }
     
 
     #SHA512
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.String -MemberType ScriptProperty -MemberName SHA512 -Force -Value {
-        $sha512 = [System.Security.Cryptography.SHA512]::Create()
-        try {$hash = [System.BitConverter]::ToString($sha512.ComputeHash([Defaults]::Encoding.GetBytes($this ?? ''))).Replace('-','')}
-        catch {$hash = 'CF83E1357EEFB8BDF1542850D66D8007D620E4050B5715DC83F4A921D36CE9CE47D0D13C5D85F2B0FF8318D2877EEC2F63B931BD47417A81A538327AF927DA3E'}
-        finally {$sha512.Dispose()}
-        $hash
+        param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
+        [Hash]::new($this, 'SHA512', $format)
     }
     
 
@@ -953,10 +1644,13 @@
         [Encryption]::Deobfuscate($this)
     }
 
-        
+    #endregion    
 #╚══════════════════════════════════════════════════════════════════════════════════════════════════════ EXTEND String ═╝
 
 #╔═ EXTEND BYTE[] ══════════════════════════════════════════════════════════════════════════════════════════════════════╗
+    #region
+
+    # This section extends the System.Byte[] class with additional common properties and methods
 
     #ToBase64
     #------------------------------------------------------------------------------------------------------------------
@@ -975,62 +1669,49 @@
     #MD5
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.Byte[] -MemberType ScriptProperty -MemberName MD5 -Force -Value {
-        $md5 = [System.Security.Cryptography.MD5]::Create()
-        try {$hash = [System.BitConverter]::ToString($md5.ComputeHash($this)).Replace('-','')}
-        catch {$hash = 'D41D8CD98F00B204E9800998ECF8427E'}
-        finally {$md5.Dispose()}
-        $hash
+        param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
+        [Hash]::new($this, 'MD5', $format)
     }
     
 
     #SHA1
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.Byte[] -MemberType ScriptProperty -MemberName SHA1 -Force -Value {
-        $sha1 = [System.Security.Cryptography.SHA1]::Create()
-        try {$hash = [System.BitConverter]::ToString($sha1.ComputeHash($this)).Replace('-','')}
-        catch {$hash = 'DA39A3EE5E6B4B0D3255BFEF95601890AFD80709'}
-        finally {$sha1.Dispose()}
-        $hash
+        param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
+        [Hash]::new($this, 'SHA1', $format)
     }
     
 
     #SHA256
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.Byte[] -MemberType ScriptProperty -MemberName SHA256 -Force -Value {
-        $sha256 = [System.Security.Cryptography.SHA256]::Create()
-        try {$hash = [System.BitConverter]::ToString($sha256.ComputeHash($this)).Replace('-','')}
-        catch {$hash = 'E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855'}
-        finally {$sha256.Dispose()}
-        $hash
+        param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
+        [Hash]::new($this, 'SHA256', $format)
     }
     
 
     #SHA384
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.Byte[] -MemberType ScriptProperty -MemberName SHA384 -Force -Value {
-        $sha384 = [System.Security.Cryptography.SHA384]::Create()
-        try {$hash = [System.BitConverter]::ToString($sha384.ComputeHash($this)).Replace('-','')}
-        catch {$hash = '38B060A751AC96384CD9327EB1B1E36A21FDB71114BE07434C0CC7BF63F6E1DA274EDEBFE76F65FBD51AD2F14898B95B'}
-        finally {$sha384.Dispose()}
-        $hash
+        param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
+        [Hash]::new($this, 'SHA384', $format)
     }
     
 
     #SHA512
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.Byte[] -MemberType ScriptProperty -MemberName SHA512 -Force -Value {
-        $sha512 = [System.Security.Cryptography.SHA512]::Create()
-        try {$hash = [System.BitConverter]::ToString($sha512.ComputeHash($this)).Replace('-','')}
-        catch {$hash = 'CF83E1357EEFB8BDF1542850D66D8007D620E4050B5715DC83F4A921D36CE9CE47D0D13C5D85F2B0FF8318D2877EEC2F63B931BD47417A81A538327AF927DA3E'}
-        finally {$sha512.Dispose()}
-        $hash
+        param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
+        [Hash]::new($this, 'SHA512', $format)
     }
 
-        
+    #endregion    
 #╚══════════════════════════════════════════════════════════════════════════════════════════════════════ EXTEND BYTE[] ═╝
 
-
 #╔═ EXTEND Hashtable ═══════════════════════════════════════════════════════════════════════════════════════════════════╗
+    #region
+
+    # This section extends the System.Collections.Hashtable class with additional common properties and methods
 
     # MD5
     #------------------------------------------------------------------------------------------------------------------
@@ -1094,10 +1775,13 @@
         $xml.OuterXml
     }    
 
-    
+    #endregion
 #╚═══════════════════════════════════════════════════════════════════════════════════════════════════ EXTEND Hashtable ═╝
 
 #╔═ EXTEND OrderedDictionary ═══════════════════════════════════════════════════════════════════════════════════════════╗
+    #region
+
+    # This section extends the System.Collections.Specialized.OrderedDictionary class with additional common properties and methods
 
     # MD5
     #------------------------------------------------------------------------------------------------------------------
@@ -1161,48 +1845,58 @@
         $xml.OuterXml
     }
         
-    
+    #endregion
 #╚═══════════════════════════════════════════════════════════════════════════════════════════ EXTEND OrderedDictionary ═╝
 
 #╔═ EXTEND SecureString ════════════════════════════════════════════════════════════════════════════════════════════════╗    
-    
+    #region
+    # This section extends the System.Security.SecureString class with additional common properties and methods
+
     #MD5
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.Security.SecureString -MemberType ScriptProperty -MemberName MD5 -Force -Value {
-        [Encryption]::Hash($this, 'MD5')
+        param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
+        [Hash]::new($this, 'MD5', $format)
     }
 
     #SHA1
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.Security.SecureString -MemberType ScriptProperty -MemberName SHA1 -Force -Value {
-        [Encryption]::Hash($this, 'SHA1')
+        param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
+        [Hash]::new($this, 'SHA1', $format)
     }
     
 
     #SHA256
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.Security.SecureString -MemberType ScriptProperty -MemberName SHA256 -Force -Value {
-        [Encryption]::Hash($this, 'SHA256')
+        param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
+        [Hash]::new($this, 'SHA256', $format)
     }
     
 
     #SHA384
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.Security.SecureString -MemberType ScriptProperty -MemberName SHA384 -Force -Value {
-        [Encryption]::Hash($this, 'SHA384')
+        param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
+        [Hash]::new($this, 'SHA384', $format)
     }
     
 
     #SHA512
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.Security.SecureString -MemberType ScriptProperty -MemberName SHA512 -Force -Value {
-        [Encryption]::Hash($this, 'SHA512')
+        param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
+        [Hash]::new($this, 'SHA512', $format)
     }
 
-        
+    #endregion    
 #╚════════════════════════════════════════════════════════════════════════════════════════════════ EXTEND SecureString ═╝
 
 #╔═ EXTEND PSCredential ════════════════════════════════════════════════════════════════════════════════════════════════╗
+    #region
+    # This section extends the System.Management.Automation.PSCredential class with additional common properties and methods
 
-        
+
+    #endregion    
 #╚════════════════════════════════════════════════════════════════════════════════════════════════ EXTEND PSCredential ═╝

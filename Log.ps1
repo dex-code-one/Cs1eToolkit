@@ -1,22 +1,21 @@
 
 #╔═ CLASSES ════════════════════════════════════════════════════════════════════════════════════════════════════════════╗
-    #region    
+    #region
 
-    #BinaryFormat enum
+    #BinaryOutputType enum
     #------------------------------------------------------------------------------------------------------------------
-    enum BinaryFormat {
+    enum BinaryOutputType {
         # This enum is used to specify the output format for binary data (hashes, etc.)
         None
         Hex
         Base64
         Base85
+        Base85Alternate
     }
 
     #HashAlgorithm enum
     #------------------------------------------------------------------------------------------------------------------
     enum HashAlgorithm {
-        # This enum is used to specify the hashing algorithm to use
-        CRC64
         MD5
         SHA1
         SHA256
@@ -54,6 +53,59 @@
         Left
         Center
         Right
+    }
+
+    #Base85 class
+    #------------------------------------------------------------------------------------------------------------------
+    class Base85 {
+
+        # these are the default characters for base85 encoding using RFC1924
+        hidden static [char[]]$EncodingCharacters = [char[]]('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!#$%&()*+-;<=>?@^_`{|}~')
+        # these are alternate characters for base85 encoding featuring letters, numbers and european diacritics without special characters or punctuation
+        hidden static [char[]]$AlternateEncodingCharacters = [char[]]('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÀÁÂÃÄÅÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØ')
+        # Methods
+        # ------------------------------------------------------------------------------------------------------------------
+
+        # Encode
+        static [string] Encode ([string]$ValueToEncode) {
+            return [Base85]::Encode([System.Text.Encoding]::UTF8.GetBytes($ValueToEncode), [Base85]::EncodingCharacters)
+        }
+
+        static [string] Encode ([string]$ValueToEncode, [bool]$UseAlternateCharacters) {
+            $currChars = if ($UseAlternateCharacters) { [Base85]::AlternateEncodingCharacters } else { [Base85]::EncodingCharacters }
+            return [Base85]::Encode([System.Text.Encoding]::UTF8.GetBytes($ValueToEncode), [char[]]$currChars)
+        }
+
+        static [string] Encode ([byte[]]$BytesToEncode) {
+            return [Base85]::Encode($BytesToEncode, [Base85]::EncodingCharacters)
+        }
+
+        static [string] Encode ([byte[]]$BytesToEncode, [bool]$UseAlternateCharacters) {
+            $currChars = if ($UseAlternateCharacters) { [Base85]::AlternateEncodingCharacters } else { [Base85]::EncodingCharacters }
+            return [Base85]::Encode($BytesToEncode, [char[]]$currChars)
+        }
+
+        static [string] Encode([byte[]]$BytesToEncode, [char[]]$EncodingCharacters) {
+            if ($EncodingCharacters.Length -ne 85) { throw [System.ArgumentException]::new('EncodingCharacters is not 85 characters') }
+            $output = New-Object System.Text.StringBuilder
+            for ($i = 0; $i -lt $BytesToEncode.Length; $i += 4) {
+                $val = 0
+                for ($j = 0; $j -lt 4; $j++) {
+                    $val = $val * 256
+                    if ($i + $j -lt $BytesToEncode.Length) {
+                        $val += $BytesToEncode[$i + $j]
+                    }
+                }
+                $chunk = New-Object char[] 5
+                for ($k = 4; $k -ge 0; $k--) {
+                    $chunk[$k] = $EncodingCharacters[$val % 85]
+                    $val = [math]::Floor($val / 85)
+                }
+                $actualChunkSize = [math]::Min(5, $BytesToEncode.Length - $i + 1)
+                $output.Append($chunk, 0, $actualChunkSize)
+            }
+            return $output.ToString()
+        }
     }
     
 
@@ -126,14 +178,13 @@
         static [string] $TopTee = '██'
         static [string] $BottomTee = '██'
         static [string] $Cross = '██'
-    }
-   
+    }   
 
     #Defaults class
     #------------------------------------------------------------------------------------------------------------------
     class Defaults {
         # This static class is used to hold default values for the module.  You don't need to instantiate this class.
-        # $encoding = [Defaults]::Encoding
+        # $encoding = [System.Text.Encoding]::UTF8
         # $indent = [Defaults]::Indent
         # etc.
         static [System.Text.Encoding] $Encoding = [System.Text.Encoding]::UTF8
@@ -144,15 +195,15 @@
         static [int] $ConsoleWidth = 120
         static [LineStyle] $LineStyle = [LineStyle]::Double
         static [int] $TextAlignment = [TextAlignment]::Left
-        static [HashAlgorithm] $HashingAlgorithm = 'MD5'
-        static [BinaryFormat] $HashingOutputFormat = 'Base64'
+        static [HashAlgorithm] $HashAlgorithm = 'MD5'
+        static [BinaryOutputType] $BinaryOutputType = 'Base64'
         static [int] $EncryptionKeySize = 256
         static [int] $EncryptionIVSize = 128
         static [int] $EncryptionIterations = 100000
         static [int] $ObfuscationKeySize = 128
         static [int] $ObfuscationIVSize = 128
         static [int] $ObfuscationIterations = 10
-        static [byte[]] $ObfuscationString = [Defaults]::Encoding.GetBytes('HppjmX3CBynZzbLIE8kLC/NRJ8Z5zLLF') # for obfuscating data
+        static [byte[]] $ObfuscationString = [System.Text.Encoding]::UTF8.GetBytes('HppjmX3CBynZzbLIE8kLC/NRJ8Z5zLLF') # for obfuscating data
         static [System.IO.FileInfo]$LogDirectory = [System.IO.Path]::Combine($env:TEMP, '1E\Logs')
         static [System.IO.FileInfo]$LogFallbackDirectory = $env:TEMP
         static [string]$LogPrefix = '1e.CustomerSuccess.'
@@ -160,7 +211,7 @@
         static [string]$LogExtension = '.log'
         static [int]$LogTailLines = 40
         static [HashAlgorithm]$LogContextIDAlgorithm = 'MD5'
-        static [BinaryFormat]$LogContextIDFormat = 'Base85'
+        static [BinaryOutputType]$LogContextIDFormat = 'Base85Alternate'
         static [hashtable]$EchoColors = @{
             'Debug' = 'DarkGray'
             'Info' = 'Green'
@@ -178,7 +229,7 @@
                 "utf-7" = 'UTF8'
                 "utf-8" = 'UTF8'
             }
-            return $null -ne $encodingMap[([Defaults]::Encoding.WebName)] ? $encodingMap[([Defaults]::Encoding.WebName)] : 'UTF8'
+            return $null -ne $encodingMap[([System.Text.Encoding]::UTF8.WebName)] ? $encodingMap[([System.Text.Encoding]::UTF8.WebName)] : 'UTF8'
         }
     }
 
@@ -222,8 +273,7 @@
                 'DEVICE_SERIAL_NUMBER' = $this.SerialNumber
             }).ToString()
         }
-    }
-    
+    }    
 
     #Draw class
     #------------------------------------------------------------------------------------------------------------------
@@ -379,90 +429,11 @@
             return $top + "`n" + $middle + "`n" + $bottom
         }
         
-    }
-    
+    }    
 
     #Encryption class
     #------------------------------------------------------------------------------------------------------------------
     class Encryption {
-
-        #Base85Encode
-        #------------------------------------------------------------------------------------------------------------------
-        static [string] Base85Encode ([byte[]] $bytes) {
-            # This function encodes a byte array into a base85 string
-            # Here we are using a custom base85 character set that uses letters, numbers and european diacritics to avoid issues with special characters
-            $base85Chars = [char[]]('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞß')
-            $output = New-Object System.Text.StringBuilder
-    
-            for ($i = 0; $i -lt $bytes.Length; $i += 4) {
-                # Accumulate up to 4 bytes into a uint
-                $value = 0
-                for ($j = 0; $j -lt 4; $j++) {
-                    $value = $value * 256
-                    if ($i + $j -lt $bytes.Length) {
-                        $value += $bytes[$i + $j]
-                    }
-                }
-    
-                # Convert the uint into 5 base85 characters
-                $chunk = New-Object char[] 5
-                for ($k = 4; $k -ge 0; $k--) {
-                    $chunk[$k] = $base85Chars[$value % 85]
-                    $value = [math]::Floor($value / 85)
-                }
-    
-                # Adjust the chunk size for the last block if it's shorter
-                $actualChunkSize = [math]::Min(5, $bytes.Length - $i + 1)
-                $output.Append($chunk, 0, $actualChunkSize)
-            }
-    
-            return $output.ToString()
-        }
-
-        # Overload for Base85Encode using string
-        static [string] Base85Encode ([string] $data) {
-            return [Encryption]::Base85Encode([Defaults]::Encoding.GetBytes($data))
-        }
-
-        # Overload for Base85Encode using SecureString
-        static [string] Base85Encode ([SecureString] $secureString) {
-            $bytes = $null
-            $pointer = [System.Runtime.InteropServices.Marshal]::SecureStringToGlobalAllocUnicode($secureString)
-            try {
-                $bytes = New-Object byte[] -ArgumentList $secureString.Length * 2
-                [System.Runtime.InteropServices.Marshal]::Copy($pointer, $bytes, 0, $bytes.Length)
-                return [Encryption]::Base85Encode($bytes)
-            } finally {
-                # Zero out the bytes array to securely clean up the data
-                if ($null -ne $bytes) {for ($i = 0; $i -lt $bytes.Length; $i++) { $bytes[$i] = 0 }}
-                [System.Runtime.InteropServices.Marshal]::ZeroFreeGlobalAllocUnicode($pointer)
-            }
-        }
-
-        #Crc64
-        #------------------------------------------------------------------------------------------------------------------
-        static [string] Crc64 ([byte[]] $data) {
-            $poly = 0xC96C5795D7870F42
-            $table = New-Object 'uint64[]' 256
-            for ($i = 0; $i -lt 256; $i++) {
-                $value = [uint64]$i
-                for ($j = 0; $j -lt 8; $j++) {
-                    if ($value -band 1) {
-                        $value = [uint64](($value -shr 1) -bxor $poly)
-                    } else {
-                        $value = [uint64]($value -shr 1)
-                    }
-                }
-                $table[$i] = $value
-            }
-        
-            $crc = [uint64]::MaxValue
-            foreach ($byte in $data) {
-                $index = [byte](($crc -bxor [uint64]$byte) -and 0xFF)
-                $crc = $table[$index] -bxor ($crc -shr 8)
-            }
-            return ($crc -bxor [uint64]::MaxValue)
-        }
 
         #Decrypt
         #------------------------------------------------------------------------------------------------------------------
@@ -488,104 +459,6 @@
             return ConvertFrom-SecureString -SecureString (ConvertTo-SecureString $data -AsPlainText -Force) -Key ([Convert]::FromBase64String($keyBase64))
         }
         
-        # Hash
-        #------------------------------------------------------------------------------------------------------------------
-        # Generates a hash of a secure string using the specified algorithm
-        static [string] Hash ([securestring] $secureString, [HashAlgorithm] $algorithm, [BinaryFormat] $outputFormat) {
-            if ($null -eq $secureString) { throw [System.ArgumentNullException]::new('secureString') }
-            $bytes = $null
-            $pointer = [System.Runtime.InteropServices.Marshal]::SecureStringToGlobalAllocUnicode($secureString)
-            try {
-                $length = $secureString.Length * 2
-                $bytes = New-Object byte[] -ArgumentList $length
-                [System.Runtime.InteropServices.Marshal]::Copy($pointer, $bytes, 0, $length)
-                # Calculate hash from bytes
-                $hash = [System.Security.Cryptography.HashAlgorithm]::Create($algorithm)
-                try {
-                    switch ($outputFormat) {
-                        'Base64' {return [Convert]::ToBase64String($hash.ComputeHash($bytes))}
-                        'Hex' {return [BitConverter]::ToString($hash.ComputeHash($bytes)).Replace('-','')}
-                        'Base85' {return [Encryption]::Base85Encode($hash.ComputeHash($bytes))}
-                        'None' {return [Encryption]::Crc64($bytes)}
-                        default {throw [System.ArgumentException]::new('outputFormat')}
-                    }
-                    return $null
-                } finally {
-                    if ($null -ne $hash) {$hash.Dispose()}
-                }
-            } finally {
-                # Zero out the bytes array to securely clean up the data
-                if ($null -ne $bytes) {for ($i = 0; $i -lt $bytes.Length; $i++) { $bytes[$i] = 0 }}
-                [System.Runtime.InteropServices.Marshal]::ZeroFreeGlobalAllocUnicode($pointer)
-            }
-        }
-
-        # Overload for Hash using string
-        static [string] Hash ([string] $data, [HashAlgorithm] $algorithm, [BinaryFormat] $outputFormat) {
-            $bytes = [Defaults]::Encoding.GetBytes($data)
-            $hash = [System.Security.Cryptography.HashAlgorithm]::Create($algorithm)
-            try {
-                switch ($outputFormat) {
-                    'Base64' {return [Convert]::ToBase64String($hash.ComputeHash($bytes))}
-                    'Hex' {return [BitConverter]::ToString($hash.ComputeHash($bytes)).Replace('-','')}
-                    'Base85' {return [Encryption]::Base85Encode($hash.ComputeHash($bytes))}
-                    'None' {return [Encryption]::Crc64($bytes)}
-                    default {throw [System.ArgumentException]::new('outputFormat')}
-                }
-                return $null
-            }
-            finally {
-                if ($null -ne $hash) {$hash.Dispose()}
-            }
-        }
-
-        # Overload for Hash using byte array
-        static [string] Hash ([byte[]] $bytes, [HashAlgorithm] $algorithm, [BinaryFormat] $outputFormat) {
-            $hash = [System.Security.Cryptography.HashAlgorithm]::Create($algorithm)
-            try {
-                switch ($outputFormat) {
-                    'Base64' {return [Convert]::ToBase64String($hash.ComputeHash($bytes))}
-                    'Hex' {return [BitConverter]::ToString($hash.ComputeHash($bytes)).Replace('-','')}
-                    'Base85' {return [Encryption]::Base85Encode($hash.ComputeHash($bytes))}
-                    'None' {return [Encryption]::Crc64($bytes)}
-                    default {throw [System.ArgumentException]::new('outputFormat')}
-                }
-                return $null
-            }
-            finally {
-                if ($null -ne $hash) {$hash.Dispose()}
-            }
-        }
-
-        # Overload for Hash using SecureString and no output format
-        static [string] Hash ([SecureString] $secureString, [HashAlgorithm] $algorithm) {
-            return [Encryption]::Hash($secureString, $algorithm, [Defaults]::HashingOutputFormat)
-        }
-
-        # Overload for Hash using string and no output format
-        static [string] Hash ([string] $data, [HashAlgorithm] $algorithm) {
-            return [Encryption]::Hash($data, $algorithm, [Defaults]::HashingOutputFormat)
-        }
-
-        # Overload for Hash using byte array and no output format
-        static [string] Hash ([byte[]] $bytes, [HashAlgorithm] $algorithm) {
-            return [Encryption]::Hash($bytes, $algorithm, [Defaults]::HashingOutputFormat)
-        }
-
-        # Overload for Hash using SecureString with no algorithm and no output format
-        static [string] Hash ([SecureString] $secureString) {
-            return [Encryption]::Hash($secureString, [Defaults]::HashingAlgorithm, [Defaults]::HashingOutputFormat)
-        }
-
-        # Overload for Hash using string with no algorithm and no output format
-        static [string] Hash ([string] $data) {
-            return [Encryption]::Hash($data, [Defaults]::HashingAlgorithm, [Defaults]::HashingOutputFormat)
-        }
-
-        # Overload for Hash using byte array with no algorithm and no output format
-        static [string] Hash ([byte[]] $bytes) {
-            return [Encryption]::Hash($bytes, [Defaults]::HashingAlgorithm, [Defaults]::HashingOutputFormat)
-        }
     
         #NewAesKey
         #------------------------------------------------------------------------------------------------------------------
@@ -608,7 +481,7 @@
                 $length = $secureString.Length * 2
                 $bytes = New-Object byte[] -ArgumentList $length
                 [System.Runtime.InteropServices.Marshal]::Copy($pointer, $bytes, 0, $length)
-                $rdb = New-Object System.Security.Cryptography.Rfc2898DeriveBytes $bytes, ([Defaults]::Encoding.GetBytes([Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecureSalt)))), ([Defaults]::EncryptionIterations)
+                $rdb = New-Object System.Security.Cryptography.Rfc2898DeriveBytes $bytes, ([System.Text.Encoding]::UTF8.GetBytes([Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecureSalt)))), ([Defaults]::EncryptionIterations)
                 try {
                     return $rdb.GetBytes(32)
                 } finally {
@@ -628,7 +501,7 @@
     
         # Generates a new AES key using a string and salt
         static [byte[]] NewAesKey([string]$String,[string]$Salt) {
-            $rdb = New-Object System.Security.Cryptography.Rfc2898DeriveBytes ([Defaults]::Encoding.GetBytes($String)), ([Defaults]::Encoding.GetBytes($Salt)), ([Defaults]::EncryptionIterations)
+            $rdb = New-Object System.Security.Cryptography.Rfc2898DeriveBytes ([System.Text.Encoding]::UTF8.GetBytes($String)), ([System.Text.Encoding]::UTF8.GetBytes($Salt)), ([Defaults]::EncryptionIterations)
             try {
                 return $rdb.GetBytes(32)
             } finally {
@@ -749,6 +622,154 @@
         }
     }
 
+    #Hash class
+    #------------------------------------------------------------------------------------------------------------------
+    class Hash {
+        [byte[]]$OriginalBytes
+        [byte[]]$HashedBytes
+        [HashAlgorithm]$Algorithm
+        [BinaryOutputType]$BinaryOutputType = [Defaults]::BinaryOutputType
+
+        #Constructors
+        #------------------------------------------------------------------------------------------------------------------
+        Hash([string]$data) {
+            $this.OriginalBytes = [System.Text.Encoding]::UTF8.GetBytes($data)
+            $this.Algorithm = [Defaults]::HashAlgorithm
+            $this.HashedBytes = [Hash]::GetHash($this.OriginalBytes, $this.Algorithm)
+        }
+
+        Hash([string]$data, [HashAlgorithm]$algorithm) {
+            $this.OriginalBytes = [System.Text.Encoding]::UTF8.GetBytes($data)
+            $this.Algorithm = $algorithm
+            $this.HashedBytes = [Hash]::GetHash($this.OriginalBytes, $this.Algorithm)
+        }
+
+        Hash([string]$data, [HashAlgorithm]$algorithm, [BinaryOutputType]$binaryOutputType) {
+            $this.OriginalBytes = [System.Text.Encoding]::UTF8.GetBytes($data)
+            $this.Algorithm = $algorithm
+            $this.HashedBytes = [Hash]::GetHash($this.OriginalBytes, $this.Algorithm)
+            $this.BinaryOutputType = $binaryOutputType
+        }
+
+        Hash([securestring]$secureString) {
+            $this.OriginalBytes = $null
+            $this.Algorithm = [Defaults]::HashAlgorithm
+            $this.HashedBytes = [Hash]::GetHash($secureString, $this.Algorithm)
+        }
+
+        Hash([securestring]$secureString, [HashAlgorithm]$algorithm) {
+            $this.OriginalBytes = $null
+            $this.Algorithm = $algorithm
+            $this.HashedBytes = [Hash]::GetHash($secureString, $this.Algorithm)
+        }
+
+        Hash([securestring]$secureString, [HashAlgorithm]$algorithm, [BinaryOutputType]$binaryOutputType) {
+            $this.OriginalBytes = $null
+            $this.Algorithm = $algorithm
+            $this.HashedBytes = [Hash]::GetHash($secureString, $this.Algorithm)
+            $this.BinaryOutputType = $binaryOutputType
+        }
+
+        Hash([byte[]]$bytes) {
+            $this.OriginalBytes = $bytes
+            $this.Algorithm = [Defaults]::HashAlgorithm
+            $this.HashedBytes = [Hash]::GetHash($this.OriginalBytes, $this.Algorithm)
+        }
+
+        Hash([byte[]]$bytes, [HashAlgorithm]$algorithm) {
+            $this.OriginalBytes = $bytes
+            $this.Algorithm = $algorithm
+            $this.HashedBytes = [Hash]::GetHash($this.OriginalBytes, $this.Algorithm)
+        }
+
+        Hash([byte[]]$bytes, [HashAlgorithm]$algorithm, [byte[]]$hashedBytes) {
+            $this.OriginalBytes = $bytes
+            $this.Algorithm = $algorithm
+            $this.HashedBytes = $hashedBytes
+        }
+
+        Hash([byte[]]$bytes, [HashAlgorithm]$algorithm, [BinaryOutputType]$binaryOutputType) {
+            $this.OriginalBytes = $bytes
+            $this.Algorithm = $algorithm
+            $this.HashedBytes = [Hash]::GetHash($this.OriginalBytes, $this.Algorithm)
+            $this.BinaryOutputType = $binaryOutputType
+        }
+
+        # GetHash
+        #------------------------------------------------------------------------------------------------------------------
+        static [byte[]] GetHash([byte[]]$BytesToHash, [HashAlgorithm] $algorithm) {
+            $hash = [System.Security.Cryptography.HashAlgorithm]::Create($algorithm)
+            $hashValue = $null
+            try {$hashValue = $hash.ComputeHash($BytesToHash)}
+            finally {$hash.Dispose()}
+            return $hashValue
+        }
+
+        # Overload for GetHash using string
+        static [byte[]] GetHash([string]$StringToHash, [HashAlgorithm] $algorithm) {
+            return [Hash]::GetHash([System.Text.Encoding]::UTF8.GetBytes($StringToHash), $algorithm)
+        }
+
+        # Overload for GetHash using secure string
+        static [byte[]] GetHash([securestring]$SecureString, [HashAlgorithm] $algorithm) {
+            $hash = [System.Security.Cryptography.HashAlgorithm]::Create($algorithm)
+            $hashValue = $null
+            try {
+                $pointer = [System.Runtime.InteropServices.Marshal]::SecureStringToGlobalAllocUnicode($SecureString)
+                $length = $SecureString.Length * 2
+                $bytes = New-Object byte[] -ArgumentList $length
+                try {
+                    [System.Runtime.InteropServices.Marshal]::Copy($pointer, $bytes, 0, $length)
+                    $hashValue = $hash.ComputeHash($bytes)
+                } finally {
+                    # Zero out the bytes array to securely clean up the data
+                    if ($null -ne $bytes) {for ($i = 0; $i -lt $bytes.Length; $i++) { $bytes[$i] = 0 }}
+                    [System.Runtime.InteropServices.Marshal]::ZeroFreeGlobalAllocUnicode($pointer)
+                }
+                return $hashValue
+            }
+            finally {
+                $hash.Dispose()
+            }
+        }
+
+        # ToBase64String
+        #------------------------------------------------------------------------------------------------------------------
+        [string] ToBase64String() {
+            return [Convert]::ToBase64String($this.HashedBytes)
+        }
+
+        # ToHexString
+        #------------------------------------------------------------------------------------------------------------------
+        [string] ToHexString() {
+            return [BitConverter]::ToString($this.HashedBytes).Replace('-','')
+        }
+
+        # ToBase85String
+        #------------------------------------------------------------------------------------------------------------------
+        [string] ToBase85String() {
+            return [Base85]::Encode($this.HashedBytes)
+        }
+
+        # Overload for ToBase85String using alternate character set
+        [string] ToBase85String([bool]$UseAlternateCharacters) {
+            return [Base85]::Encode($this.HashedBytes, $UseAlternateCharacters)
+        }
+
+        # ToString
+        #------------------------------------------------------------------------------------------------------------------
+        [string] ToString() {
+            switch ($this.BinaryOutputType) {
+                'Base64' {return $this.ToBase64String()}
+                'Hex' {return $this.ToHexString()}
+                'Base85' {return $this.ToBase85String()}
+                'Base85Alternate' {return $this.ToBase85String($true)}
+                'None' {return [System.Text.Encoding]::UTF8.GetString($this.HashedBytes)}
+            }
+            return $null
+        }
+    }
+
     #LogContext class
     #------------------------------------------------------------------------------------------------------------------
     class LogContext {
@@ -768,13 +789,13 @@
             $this.PowerShell = [PowerShell]::new()
             $this.Process = [Process]::new()
             $this.User = [User]::new()
-            $this.ID = [Encryption]::Hash($this.ToString(), [Defaults]::LogContextIDAlgorithm, [Defaults]::LogContextIDFormat)
+            $this.ID = ([Hash]::new($this.ToString(), 'MD5', 'Base85Alternate').ToString())
         }
 
         #Methods
         #------------------------------------------------------------------------------------------------------------------
         [string] ToString() {
-            return $this.Device.ToString()+$this.OS.ToString()+$this.PowerShell.ToString()+$this.Process.ToString()+$this.User.ToString()
+            return $this.Device.ToString()+"`n"+$this.OS.ToString()+"`n"+$this.PowerShell.ToString()+"`n"+$this.Process.ToString()+"`n"+$this.User.ToString()
         }
     }
 
@@ -794,13 +815,13 @@
         [string]$FS = [Defaults]::FieldSeparator
         [string]$RS = [Defaults]::RecordSeparator
         [HashAlgorithm]$ContextIDAlgorithm = [Defaults]::LogContextIDAlgorithm
-        [BinaryFormat]$ContextIDFormat = [Defaults]::LogContextIDFormat
+        [BinaryOutputType]$ContextIDFormat = [Defaults]::LogContextIDFormat
         [hashtable]$EchoColors = @{'Debug' = 'DarkGray';'Info' = 'Green';'Warn' = 'Yellow';'Error' = 'Red';'Fatal' = 'Magenta'}
         [LogContext]$Context
 
         # Private Properties
         #==================================================================================================================
-        hidden [string]$encodingName = [Defaults]::EncodingName
+        hidden [string]$encodingName = [System.Text.Encoding]::UTF8.WebName
         hidden [System.IO.FileInfo]$cmTrace
 
         # Constructors
@@ -843,7 +864,7 @@
             # Make sure the log file exists, if not, create it
             if (-not (Test-Path -Path $this.LogFile.FullName)) {
                 try {
-                    Set-Content -Path $this.LogFile.FullName -Force -ErrorAction Stop -Encoding ([Defaults]::Encoding) -Value ''
+                    Set-Content -Path $this.LogFile.FullName -Force -ErrorAction Stop -Encoding ([System.Text.Encoding]::UTF8) -Value ''
                 }
                 catch {
                     # If we can't create the log file, fail
@@ -875,7 +896,6 @@
             $this.Write('Debug', $Message)
         }
 
-
         # Echo
         #------------------------------------------------------------------------------------------------------------------
         hidden [void] Echo([string] $Message, [string] $Level) {
@@ -887,7 +907,6 @@
         [void] Error([string] $Message) {
             $this.Write('Error', $Message)
         }
-
 
         # Fatal
         #------------------------------------------------------------------------------------------------------------------
@@ -951,10 +970,9 @@
             } else {return [string[]]@()}
         }
 
-
         # GetDateRangeOfLog
         #------------------------------------------------------------------------------------------------------------------
-        [PSCustomObject] GetDateRangeOfLog() {
+        [ordered] GetDateRangeOfLog() {
             # If the properties haven't been cleared, and the log exists
             if ($this.LogFile.FullName -and (Test-Path -Path $this.LogFile.FullName)) {
                 # Get the date from the first record in the log
@@ -964,28 +982,26 @@
                 $last = (((Get-Content -Path $this.LogFile.FullName -Raw) -split $this.RS | Where-Object {$_} | Select-Object -Last 1) -split $this.FS)[0]
 
                 # Return the date range
-                return [PSCustomObject]@{
+                return [ordered]@{
                     First = [DateTimeOffset]::ParseExact($first, "yyyy-MM-dd HH:mm:ss.fffffff zzz", [System.Globalization.CultureInfo]::InvariantCulture)
                     Last = [DateTimeOffset]::ParseExact($last, "yyyy-MM-dd HH:mm:ss.fffffff zzz", [System.Globalization.CultureInfo]::InvariantCulture)
                     TimeSpan = [DateTimeOffset]::ParseExact($last, "yyyy-MM-dd HH:mm:ss.fffffff zzz", [System.Globalization.CultureInfo]::InvariantCulture) - [DateTimeOffset]::ParseExact($first, "yyyy-MM-dd HH:mm:ss.fffffff zzz", [System.Globalization.CultureInfo]::InvariantCulture)
                 }
             }
             else {
-                return [PSCustomObject]@{
+                return [ordered]@{
                     First = [DateTimeOffset]::MinValue
                     Last = [DateTimeOffset]::MinValue
                     TimeSpan = [DateTimeOffset]::MinValue - [DateTimeOffset]::MinValue
                 }
             }
-        }        
-
+        }
 
         # Info
         #------------------------------------------------------------------------------------------------------------------
         [void] Info([string] $Message) {
             $this.Write('Info', $Message)
         }
-
 
         # NewEntryString
         #------------------------------------------------------------------------------------------------------------------
@@ -1122,7 +1138,6 @@
             return (Get-Item -Path $this.LogFile.FullName).Length
         }
 
-
         # Tail
         #------------------------------------------------------------------------------------------------------------------
         [string[]] Tail([int] $lines) {
@@ -1137,7 +1152,26 @@
             } else {
                 return [string[]]@()
             }
-        }        
+        }
+        
+        # ToString
+        #------------------------------------------------------------------------------------------------------------------
+        [string] ToString() {
+            return ([ordered]@{
+                LOG_NAME = $this.LogFile.Name
+                LOG_SIZE = $this.Size()
+                LOG_MAX_BYTES = $this.LogMaxBytes
+                LOG_MAX_ROLLOVERS = $this.LogMaxRollovers
+                LOG_TAIL_LINES = $this.TailLines
+                LOG_ECHO_MESSAGES = $this.EchoMessages
+                LOG_ENCODING = $this.encodingName
+                LOG_ROLLOVER_LOGS = $this.RolloverLogs.Count
+                LOG_INSTANTIATED_TIME = $this.InstantiatedTime.ToString("yyyy-MM-dd HH:mm:ss.fffffff zzz")
+                LOG_FIELD_SEPARATOR = $this.FS.ToEscapedString()
+                LOG_RECORD_SEPARATOR = $this.RS.ToEscapedString()
+                LOG_CONTEXT_ID = $this.Context.ID
+            }).ToString()
+        }
 
         # Overload for Tail using default TailLines property
         [string[]] Tail() {
@@ -1150,106 +1184,38 @@
             $this.Write('Warn', $Message)
         }
 
-
         # Write
         #------------------------------------------------------------------------------------------------------------------
         hidden [void] Write([LogLevel] $Level = 'Info', [string] $Message) {
             # Build the log entry string
             $msg = $this.NewEntryString($Level, $Message)
-            try {
-                # Open the log file
-                $fileStream = [System.IO.File]::Open($this.LogFile, [System.IO.FileMode]::Append, [System.IO.FileAccess]::Write, [System.IO.FileShare]::ReadWrite)
-                $streamWriter = New-Object System.IO.StreamWriter $fileStream, [defaults]::encoding                
-                try {
-                    # see if the message will make the log exceed the LogMaxBytes property
-                    if (([defaults]::encoding.GetByteCount($msg) + $streamWriter.BaseStream.Length) -ge $this.LogMaxBytes) {
-                        # if it will, close the log...
-                        $streamWriter.Close()
-                        $fileStream.Close()
-                        # ...and roll it over
-                        $this.RollOver()
-                        # then open the log again
-                        $fileStream = [System.IO.File]::Open($this.LogFile, [System.IO.FileMode]::Append, [System.IO.FileAccess]::Write, [System.IO.FileShare]::ReadWrite)
-                        $streamWriter = New-Object System.IO.StreamWriter $fileStream, [defaults]::encoding
-                        # get the current logging context
-                        $this.Context = [LogContext]::new()
-                        # write the context to the log
-                        $streamWriter.Write($this.NewEntryString('Info',"`n$([Draw]::BoxTop(' LOG_CONTEXT ', 'Double','Left'))`n$($this.Context.ToString())`n$([Draw]::BoxBottom(' LOG_CONTEXT ', 'Double','Right'))"))
-                        # generate the log entry again, as the the original timestamp has changed
-                        $msg = $this.NewEntryString($Level, $Message)
-                    }
-
-                    # Write the message to the log
-                    $streamWriter.Write($msg)
-                    $streamWriter.Flush()
-
-                    # Echo the message to the console if EchoMessages is true
-                    if ($this.EchoMessages) {
-                        $this.Echo($msg, $level)
-                    }
-                }
-                catch {
-                    # If there was an error writing to the log, write the error to the console
-                    Write-Error "Error writing to log:`n$_"
-                }
-                finally {
-                    # Close the log if it's open
-                    if ($streamWriter) {$streamWriter.Close()}
-                    if ($fileStream) {$fileStream.Close()}
-                }
+            #see if the message will make the log exceed the LogMaxBytes property
+            $this.LogFile.Refresh() #refresh size info
+            if (([system.text.encoding]::utf8.GetByteCount($msg) + $this.LogFile.Length) -ge $this.LogMaxBytes) {
+                $this.RollOver() # if it will exceed the LogMaxBytes, rollover the log
+                #get the current logging context
+                $this.Context = [LogContext]::new()
+                #write the context to the log
+                $logDetails = "`n$([Draw]::BoxTop(' LOG_DETAILS ', 'Double','Left'))`n$($this.ToString())`n$([Draw]::BoxBottom(' LOG_DETAILS ', 'Double','Right'))"
+                $contextDetails = "`n$([Draw]::BoxTop(' LOG_CONTEXT ', 'Double','Left'))`n$($this.Context.ToString())`n$([Draw]::BoxBottom(' LOG_CONTEXT ', 'Double','Right'))"
+                $msg = $this.NewEntryString('Info',"$logDetails`n$contextDetails")
+                Out-File -FilePath $this.LogFile.FullName -InputObject $msg -Append -Encoding $this.encodingName -ErrorAction Stop -Force -NoNewline
+                #generate the log entry again, as the the original timestamp has changed
+                $msg = $this.NewEntryString($Level, $Message)
             }
-            catch {
-                # If there was an error writing to the log, write the error to the console
-                Write-Host "Error writing to log:`n$_"
+            # Write the message to the log
+            Out-File -FilePath $this.LogFile.FullName -InputObject $msg -Append -Encoding $this.encodingName -ErrorAction Stop -Force -NoNewline
+
+            # Echo the message to the console if EchoMessages is true
+            if ($this.EchoMessages) {
+                $this.Echo($msg, $level)
             }
         }
-        
-        hidden [void] Write([LogLevel] $Level = 'Info', [string[]] $Messages) {
-            # Open the log file with a StreamWriter
-            $fileStream = [System.IO.File]::Open($this.LogFile, [System.IO.FileMode]::Append, [System.IO.FileAccess]::Write, [System.IO.FileShare]::ReadWrite)
-            $streamWriter = New-Object System.IO.StreamWriter $fileStream, [defaults]::encoding
-            try {
 
-                # Loop through each message and write it to the log without closing in between (unless the log rolls over)
-                foreach ($message in $Messages) {
-                    # Build the log message
-                    $msg = $this.NewEntryString($Level, $message)
-                    # see if the message will make the log exceed the LogMaxBytes property
-                    if (([defaults]::encoding.GetByteCount($msg) + $streamWriter.BaseStream.Length) -ge $this.LogMaxBytes) {
-                        # if it will, close the log...
-                        $streamWriter.Close()
-                        $fileStream.Close()
-                        # ...and roll it over
-                        $this.RollOver()
-                        # then open the log again
-                        $fileStream = [System.IO.File]::Open($this.LogFile, [System.IO.FileMode]::Append, [System.IO.FileAccess]::Write, [System.IO.FileShare]::ReadWrite)
-                        $streamWriter = New-Object System.IO.StreamWriter $fileStream, [defaults]::encoding
-                        # get the current logging context
-                        $this.Context = [LogContext]::new()
-                        # write the context to the log
-                        $streamWriter.Write($this.NewEntryString('Info',"`n$([Draw]::BoxTop(' LOG_CONTEXT ', 'Double','Left'))`n$($this.Context.ToString())`n$([Draw]::BoxBottom(' LOG_CONTEXT ', 'Double','Right'))"))
-                        $streamWriter.Flush()
-                        # generate the log entry again, as the the original timestamp has changed
-                        $msg = $this.NewEntryString($Level, $Message)
-                    }
-
-                    # Write the message to the log
-                    $streamWriter.Write($msg)
-
-                    # Echo the message to the console if EchoMessages is true
-                    if ($this.EchoMessages) {
-                        $this.Echo($msg, $level)
-                    }
-                }
-            }
-            catch {
-                # If there was an error writing to the log, write the error to the console
-                Write-Error "Error writing to log:`n$_"
-            }
-            finally {
-                # Close the log if it's open
-                if ($streamWriter) {$streamWriter.Close()}
-                if ($fileStream) {$fileStream.Close()}
+        # overload to write an array of messages
+        [void] Write([LogLevel] $Level = 'Info', [string[]] $Messages) {
+            foreach ($message in $Messages) {
+                $this.Write($Level, $message)
             }
         }
     }
@@ -1457,7 +1423,7 @@
     #FromBase64
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName FromBase64 -Force -Value {
-        [Defaults]::Encoding.GetString([Convert]::FromBase64String($this ?? ''))
+        [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($this ?? ''))
     }
     
 
@@ -1473,6 +1439,12 @@
     Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName FromJson -Force -Value {
         $this | ConvertFrom-Json
     }
+
+    #Hash
+    #------------------------------------------------------------------------------------------------------------------
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName Hash -Force -Value {
+        param([string] $algorithm = ([Defaults]::HashAlgorithm), [BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
+    }
     
 
     #IsHex
@@ -1485,13 +1457,13 @@
     #ToBase64
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName ToBase64 -Force -Value {
-        [Convert]::ToBase64String([Defaults]::Encoding.GetBytes($this ?? ''))
+        [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($this ?? ''))
     }    
 
     #ToByteArray
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName ToByteArray -Force -Value {
-        [Defaults]::Encoding.GetBytes($this ?? '')
+        [System.Text.Encoding]::UTF8.GetBytes($this ?? '')
     }
     
 
@@ -1520,7 +1492,7 @@
     #ToHex
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName ToHex -Force -Value {
-        [System.BitConverter]::ToString([Defaults]::Encoding.GetBytes($this ?? '')).Replace('-','')
+        [System.BitConverter]::ToString([System.Text.Encoding]::UTF8.GetBytes($this ?? '')).Replace('-','')
     }
     
 
@@ -1571,11 +1543,8 @@
     #MD5
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.String -MemberType ScriptProperty -MemberName MD5 -Force -Value {
-        $md5 = [System.Security.Cryptography.MD5]::Create()
-        try {$hash = [System.BitConverter]::ToString($md5.ComputeHash([Defaults]::Encoding.GetBytes($this ?? ''))).Replace('-','')}
-        catch {$hash = 'D41D8CD98F00B204E9800998ECF8427E'}
-        finally {$md5.Dispose()}
-        $hash
+        param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
+        [Hash]::new($this, 'MD5', $format)
     }
 
 
@@ -1640,44 +1609,32 @@
     #SHA1
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.String -MemberType ScriptProperty -MemberName SHA1 -Force -Value {
-        $sha1 = [System.Security.Cryptography.SHA1]::Create()
-        try {$hash = [System.BitConverter]::ToString($sha1.ComputeHash([Defaults]::Encoding.GetBytes($this ?? ''))).Replace('-','')}
-        catch {$hash = 'DA39A3EE5E6B4B0D3255BFEF95601890AFD80709'}
-        finally {$sha1.Dispose()}
-        $hash
+        param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
+        [Hash]::new($this, 'SHA1', $format)
     }
     
 
     #SHA256
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.String -MemberType ScriptProperty -MemberName SHA256 -Force -Value {
-        $sha256 = [System.Security.Cryptography.SHA256]::Create()
-        try {$hash = [System.BitConverter]::ToString($sha256.ComputeHash([Defaults]::Encoding.GetBytes($this ?? ''))).Replace('-','')}
-        catch {$hash = 'E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855'}
-        finally {$sha256.Dispose()}
-        $hash
+        param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
+        [Hash]::new($this, 'SHA256', $format)
     }
     
 
     #SHA384
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.String -MemberType ScriptProperty -MemberName SHA384 -Force -Value {
-        $sha384 = [System.Security.Cryptography.SHA384]::Create()
-        try {$hash = [System.BitConverter]::ToString($sha384.ComputeHash([Defaults]::Encoding.GetBytes($this ?? ''))).Replace('-','')}
-        catch {$hash = '38B060A751AC96384CD9327EB1B1E36A21FDB71114BE07434C0CC7BF63F6E1DA274EDEBFE76F65FBD51AD2F14898B95B'}
-        finally {$sha384.Dispose()}
-        $hash
+        param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
+        [Hash]::new($this, 'SHA384', $format)
     }
     
 
     #SHA512
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.String -MemberType ScriptProperty -MemberName SHA512 -Force -Value {
-        $sha512 = [System.Security.Cryptography.SHA512]::Create()
-        try {$hash = [System.BitConverter]::ToString($sha512.ComputeHash([Defaults]::Encoding.GetBytes($this ?? ''))).Replace('-','')}
-        catch {$hash = 'CF83E1357EEFB8BDF1542850D66D8007D620E4050B5715DC83F4A921D36CE9CE47D0D13C5D85F2B0FF8318D2877EEC2F63B931BD47417A81A538327AF927DA3E'}
-        finally {$sha512.Dispose()}
-        $hash
+        param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
+        [Hash]::new($this, 'SHA512', $format)
     }
     
 
@@ -1712,65 +1669,40 @@
     #MD5
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.Byte[] -MemberType ScriptProperty -MemberName MD5 -Force -Value {
-        $md5 = [System.Security.Cryptography.MD5]::Create()
-        try {$hash = [System.BitConverter]::ToString($md5.ComputeHash($this)).Replace('-','')}
-        catch {$hash = 'D41D8CD98F00B204E9800998ECF8427E'}
-        finally {$md5.Dispose()}
-        $hash
-    }
-
-    #MD5B64
-    #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.Byte[] -MemberType ScriptProperty -MemberName MD5B64 -Force -Value {
-        $md5 = [System.Security.Cryptography.MD5]::Create()
-        try {$hash = [Convert]::ToBase64String($md5.ComputeHash($this))}
-        catch {$hash = '0A'}
-        finally {$md5.Dispose()}
-        $hash
+        param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
+        [Hash]::new($this, 'MD5', $format)
     }
     
 
     #SHA1
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.Byte[] -MemberType ScriptProperty -MemberName SHA1 -Force -Value {
-        $sha1 = [System.Security.Cryptography.SHA1]::Create()
-        try {$hash = [System.BitConverter]::ToString($sha1.ComputeHash($this)).Replace('-','')}
-        catch {$hash = 'DA39A3EE5E6B4B0D3255BFEF95601890AFD80709'}
-        finally {$sha1.Dispose()}
-        $hash
+        param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
+        [Hash]::new($this, 'SHA1', $format)
     }
     
 
     #SHA256
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.Byte[] -MemberType ScriptProperty -MemberName SHA256 -Force -Value {
-        $sha256 = [System.Security.Cryptography.SHA256]::Create()
-        try {$hash = [System.BitConverter]::ToString($sha256.ComputeHash($this)).Replace('-','')}
-        catch {$hash = 'E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855'}
-        finally {$sha256.Dispose()}
-        $hash
+        param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
+        [Hash]::new($this, 'SHA256', $format)
     }
     
 
     #SHA384
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.Byte[] -MemberType ScriptProperty -MemberName SHA384 -Force -Value {
-        $sha384 = [System.Security.Cryptography.SHA384]::Create()
-        try {$hash = [System.BitConverter]::ToString($sha384.ComputeHash($this)).Replace('-','')}
-        catch {$hash = '38B060A751AC96384CD9327EB1B1E36A21FDB71114BE07434C0CC7BF63F6E1DA274EDEBFE76F65FBD51AD2F14898B95B'}
-        finally {$sha384.Dispose()}
-        $hash
+        param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
+        [Hash]::new($this, 'SHA384', $format)
     }
     
 
     #SHA512
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.Byte[] -MemberType ScriptProperty -MemberName SHA512 -Force -Value {
-        $sha512 = [System.Security.Cryptography.SHA512]::Create()
-        try {$hash = [System.BitConverter]::ToString($sha512.ComputeHash($this)).Replace('-','')}
-        catch {$hash = 'CF83E1357EEFB8BDF1542850D66D8007D620E4050B5715DC83F4A921D36CE9CE47D0D13C5D85F2B0FF8318D2877EEC2F63B931BD47417A81A538327AF927DA3E'}
-        finally {$sha512.Dispose()}
-        $hash
+        param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
+        [Hash]::new($this, 'SHA512', $format)
     }
 
     #endregion    
@@ -1923,34 +1855,39 @@
     #MD5
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.Security.SecureString -MemberType ScriptProperty -MemberName MD5 -Force -Value {
-        [Encryption]::Hash($this, 'MD5')
+        param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
+        [Hash]::new($this, 'MD5', $format)
     }
 
     #SHA1
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.Security.SecureString -MemberType ScriptProperty -MemberName SHA1 -Force -Value {
-        [Encryption]::Hash($this, 'SHA1')
+        param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
+        [Hash]::new($this, 'SHA1', $format)
     }
     
 
     #SHA256
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.Security.SecureString -MemberType ScriptProperty -MemberName SHA256 -Force -Value {
-        [Encryption]::Hash($this, 'SHA256')
+        param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
+        [Hash]::new($this, 'SHA256', $format)
     }
     
 
     #SHA384
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.Security.SecureString -MemberType ScriptProperty -MemberName SHA384 -Force -Value {
-        [Encryption]::Hash($this, 'SHA384')
+        param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
+        [Hash]::new($this, 'SHA384', $format)
     }
     
 
     #SHA512
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.Security.SecureString -MemberType ScriptProperty -MemberName SHA512 -Force -Value {
-        [Encryption]::Hash($this, 'SHA512')
+        param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
+        [Hash]::new($this, 'SHA512', $format)
     }
 
     #endregion    
@@ -1966,6 +1903,7 @@
 
 #╔═ Script ═════════════════════════════════════════════════════════════════════════════════════════════════════════════╗
     #region
+    
         $log = [Log]::new('CsLog')
         $log.EchoMessages = $false
         1..10 | ForEach-Object {$log.Write('Debug',"This is a test message $_")}
@@ -1973,6 +1911,7 @@
         1..10 | ForEach-Object {$log.Write('Warn',"This is a test message $_")}
         1..10 | ForEach-Object {$log.Write('Error',"This is a test message $_")}
         1..10 | ForEach-Object {$log.Write('Fatal',"This is a test message $_")}
+    
     #endregion
 #╚═════════════════════════════════════════════════════════════════════════════════════════════════════════════ Script ═╝
 
