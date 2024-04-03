@@ -72,7 +72,7 @@
         }
 
         static [string] Encode ([string]$ValueToEncode, [bool]$UseAlternateCharacters) {
-            $currChars = if ($UseAlternateCharacters) { [Base85]::AlternateEncodingCharacters } else { [Base85]::EncodingCharacters }
+            $currChars = if ($UseAlternateCharacters) { [Base85]::AlternateEncodingCharacters }else { [Base85]::EncodingCharacters }
             return [Base85]::Encode([System.Text.Encoding]::UTF8.GetBytes($ValueToEncode), [char[]]$currChars)
         }
 
@@ -81,7 +81,7 @@
         }
 
         static [string] Encode ([byte[]]$BytesToEncode, [bool]$UseAlternateCharacters) {
-            $currChars = if ($UseAlternateCharacters) { [Base85]::AlternateEncodingCharacters } else { [Base85]::EncodingCharacters }
+            $currChars = if ($UseAlternateCharacters) { [Base85]::AlternateEncodingCharacters }else { [Base85]::EncodingCharacters }
             return [Base85]::Encode($BytesToEncode, [char[]]$currChars)
         }
 
@@ -178,7 +178,7 @@
         static [string] $TopTee = '██'
         static [string] $BottomTee = '██'
         static [string] $Cross = '██'
-    }   
+    }
 
     #Defaults class
     #------------------------------------------------------------------------------------------------------------------
@@ -189,8 +189,8 @@
         # etc.
         static [System.Text.Encoding] $Encoding = [System.Text.Encoding]::UTF8
         static [string] $EncodingName = [Defaults]::GetEncodingName()
-        static [string] $FieldSeparator = "`u{200B} " # Zero-width space and a space
-        static [string] $RecordSeparator = "`u{2063}`n" # Invisible separator and a newline
+        static [string] $FieldSeparator = "`u{200B} " # Zero-width space + space
+        static [string] $RecordSeparator = "`u{200B}`n" # Zero-width space and a newline
         static [int] $Indent = 4
         static [int] $ConsoleWidth = 120
         static [LineStyle] $LineStyle = [LineStyle]::Double
@@ -256,7 +256,7 @@
         # Overload to get the device information with no parameters
         Device() {
             $this.Name = [System.Net.Dns]::GetHostEntry([System.Net.Dns]::GetHostName()).HostName
-            $this.Ip = try {Get-NetIPAddress -AddressFamily IPv4 -Type Unicast | Where-Object {$_.InterfaceAlias -notlike '*Loopback*' -and $_.PrefixOrigin -ne 'WellKnown'} | Sort-Object -Property InterfaceMetric -Descending | Select-Object -First 1 -ExpandProperty IPAddress} catch {''}
+            $this.Ip = try {Get-NetIPAddress -AddressFamily IPv4 -Type Unicast | Where-Object {$_.InterfaceAlias -notlike '*Loopback*' -and $_.PrefixOrigin -ne 'WellKnown'}| Sort-Object -Property InterfaceMetric -Descending | Select-Object -First 1 -ExpandProperty IPAddress}catch {''}
             $this.Manufacturer = (Get-WmiObject -Class Win32_BaseBoard).Manufacturer
             $this.Model = (Get-WmiObject -Class Win32_ComputerSystem).Model
             $this.SerialNumber = (Get-WmiObject -Class Win32_BIOS).SerialNumber
@@ -273,7 +273,7 @@
                 'DEVICE_SERIAL_NUMBER' = $this.SerialNumber
             }).ToString()
         }
-    }    
+    }
 
     #Draw class
     #------------------------------------------------------------------------------------------------------------------
@@ -362,7 +362,7 @@
                     $text.PadLeft($leftPadding + $text.Length).PadRight($leftPadding + $text.Length + $rightPadding)
                 }
                 'Right'{$text.PadLeft($effectiveWidth)}
-            }            
+            }
             $middle = $style::Vertical + $text + $style::Vertical
             return $middle
         }
@@ -429,7 +429,7 @@
             return $top + "`n" + $middle + "`n" + $bottom
         }
         
-    }    
+    }
 
     #Encryption class
     #------------------------------------------------------------------------------------------------------------------
@@ -484,10 +484,10 @@
                 $rdb = New-Object System.Security.Cryptography.Rfc2898DeriveBytes $bytes, ([System.Text.Encoding]::UTF8.GetBytes([Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecureSalt)))), ([Defaults]::EncryptionIterations)
                 try {
                     return $rdb.GetBytes(32)
-                } finally {
+                }finally {
                     if ($null -ne $rdb) {$rdb.Dispose()}
-                }           
-            } finally {
+                }
+            }finally {
                 # Zero out the bytes array to securely clean up the data
                 if ($null -ne $bytes) {for ($i = 0; $i -lt $bytes.Length; $i++) { $bytes[$i] = 0 }}
                 [System.Runtime.InteropServices.Marshal]::ZeroFreeGlobalAllocUnicode($pointer)
@@ -504,10 +504,10 @@
             $rdb = New-Object System.Security.Cryptography.Rfc2898DeriveBytes ([System.Text.Encoding]::UTF8.GetBytes($String)), ([System.Text.Encoding]::UTF8.GetBytes($Salt)), ([Defaults]::EncryptionIterations)
             try {
                 return $rdb.GetBytes(32)
-            } finally {
+            }finally {
                 if ($null -ne $rdb) {$rdb.Dispose()}
             }
-        }        
+        }
 
         # ROT13
         #------------------------------------------------------------------------------------------------------------------
@@ -542,7 +542,7 @@
         #------------------------------------------------------------------------------------------------------------------
         static [System.IO.DirectoryInfo[]] Directory([string] $Filter) {
             return [Find]::FixedDrives() |
-                Where-Object {$_.Name -like '?:\'} |
+                Where-Object {$_.Name -like '?:\'}|
                     ForEach-Object {Get-ChildItem -Path $_.Name -Recurse -Directory -ErrorAction SilentlyContinue -Force -Filter $Filter}
         }
 
@@ -550,7 +550,7 @@
         #------------------------------------------------------------------------------------------------------------------
         static [System.IO.FileInfo[]] File([string] $Filter) {
             return [Find]::FixedDrives() |
-                Where-Object {$_.Name -like '?:\'} |
+                Where-Object {$_.Name -like '?:\'}|
                     ForEach-Object {Get-ChildItem -Path $_.Name -Recurse -File -ErrorAction SilentlyContinue -Force -Filter $Filter}
         }
 
@@ -558,8 +558,8 @@
         #------------------------------------------------------------------------------------------------------------------
         static [System.IO.DirectoryInfo] FirstDirectory([string] $Filter) {
             return [Find]::FixedDrives() |
-                Where-Object {$_.Name -like '?:\'} |
-                    ForEach-Object {Get-ChildItem -Path $_.Name -Recurse -Directory -ErrorAction SilentlyContinue -Force -Filter $Filter} |
+                Where-Object {$_.Name -like '?:\'}|
+                    ForEach-Object {Get-ChildItem -Path $_.Name -Recurse -Directory -ErrorAction SilentlyContinue -Force -Filter $Filter}|
                         Select-Object -First 1
         }
 
@@ -567,8 +567,8 @@
         #------------------------------------------------------------------------------------------------------------------
         static [System.IO.FileInfo] FirstFile([string] $Filter) {
             return [Find]::FixedDrives() |
-                Where-Object {$_.Name -like '?:\'} |
-                    ForEach-Object {Get-ChildItem -Path $_.Name -Recurse -File -ErrorAction SilentlyContinue -Force -Filter $Filter} |
+                Where-Object {$_.Name -like '?:\'}|
+                    ForEach-Object {Get-ChildItem -Path $_.Name -Recurse -File -ErrorAction SilentlyContinue -Force -Filter $Filter}|
                         Select-Object -First 1
         }
 
@@ -576,9 +576,9 @@
         #------------------------------------------------------------------------------------------------------------------
         static [System.IO.FileInfo] FirstFileWithString([string] $Filter, [string] $Pattern) {
             return [Find]::FixedDrives() |
-                Where-Object {$_.Name -like '?:\'} |
-                    ForEach-Object {Get-ChildItem -Path $_.Name -Recurse -File -ErrorAction SilentlyContinue -Force -Filter $Filter} |
-                        Where-Object {(Select-String -Path $_ -Pattern $pattern -Quiet)} |
+                Where-Object {$_.Name -like '?:\'}|
+                    ForEach-Object {Get-ChildItem -Path $_.Name -Recurse -File -ErrorAction SilentlyContinue -Force -Filter $Filter}|
+                        Where-Object {(Select-String -Path $_ -Pattern $pattern -Quiet)}|
                             Select-Object -First 1
         }
 
@@ -586,8 +586,8 @@
         #------------------------------------------------------------------------------------------------------------------
         static [System.IO.FileInfo[]] FileWithString([string] $Filter, [string] $Pattern) {
             return [Find]::FixedDrives() |
-                Where-Object {$_.Name -like '?:\'} |
-                    ForEach-Object {Get-ChildItem -Path $_.Name -Recurse -File -ErrorAction SilentlyContinue -Force -Filter $Filter} |
+                Where-Object {$_.Name -like '?:\'}|
+                    ForEach-Object {Get-ChildItem -Path $_.Name -Recurse -File -ErrorAction SilentlyContinue -Force -Filter $Filter}|
                         Where-Object {(Select-String -Path $_ -Pattern $pattern -Quiet)}
         }
 
@@ -601,8 +601,8 @@
         #------------------------------------------------------------------------------------------------------------------
         static [System.IO.DirectoryInfo] LastDirectory([string] $Filter) {
             return [Find]::FixedDrives() |
-                Where-Object {$_.Name -like '?:\'} |
-                    ForEach-Object {Get-ChildItem -Path $_.Name -Recurse -Directory -ErrorAction SilentlyContinue -Force -Filter $Filter} |
+                Where-Object {$_.Name -like '?:\'}|
+                    ForEach-Object {Get-ChildItem -Path $_.Name -Recurse -Directory -ErrorAction SilentlyContinue -Force -Filter $Filter}|
                         Select-Object -Last 1
         }
 
@@ -610,8 +610,8 @@
         #------------------------------------------------------------------------------------------------------------------
         static [System.IO.FileInfo] LastFile([string] $Filter) {
             return [Find]::FixedDrives() |
-                Where-Object {$_.Name -like '?:\'} |
-                    ForEach-Object {Get-ChildItem -Path $_.Name -Recurse -File -ErrorAction SilentlyContinue -Force -Filter $Filter} |
+                Where-Object {$_.Name -like '?:\'}|
+                    ForEach-Object {Get-ChildItem -Path $_.Name -Recurse -File -ErrorAction SilentlyContinue -Force -Filter $Filter}|
                         Select-Object -Last 1
         }
 
@@ -721,7 +721,7 @@
                 try {
                     [System.Runtime.InteropServices.Marshal]::Copy($pointer, $bytes, 0, $length)
                     $hashValue = $hash.ComputeHash($bytes)
-                } finally {
+                }finally {
                     # Zero out the bytes array to securely clean up the data
                     if ($null -ne $bytes) {for ($i = 0; $i -lt $bytes.Length; $i++) { $bytes[$i] = 0 }}
                     [System.Runtime.InteropServices.Marshal]::ZeroFreeGlobalAllocUnicode($pointer)
@@ -799,6 +799,48 @@
         }
     }
 
+    #LogEntry class
+    #------------------------------------------------------------------------------------------------------------------
+    class LogEntry {
+        # This class is used to hold log entries
+        [System.DateTimeOffset]$Timestamp
+        [LogLevel]$Level
+        [string]$ContextID
+        [string]$Message
+
+        #Constructors
+        #------------------------------------------------------------------------------------------------------------------
+        LogEntry([string]$LogEntryString) {
+            $fields = $LogEntryString.Split([Defaults]::FieldSeparator)
+            if ($fields.Length -ne 4) {throw "Invalid log entry string: $LogEntryString`nExpected 4 fields, found $($fields.Length) fields."}
+            $this.Timestamp = [System.DateTimeOffset]::Parse($fields[0])
+            $this.ContextID = $fields[1]
+            $this.Level = $fields[2]
+            $this.Message = $fields[3]
+        }
+
+        LogEntry([string]$contextID, [LogLevel]$level, [string]$message) {
+            $this.Timestamp = [System.DateTimeOffset]::Now
+            $this.ContextID = $contextID
+            $this.Level = $level
+            $this.Message = $message
+        }
+
+        LogEntry([DateTimeOffset]$timestamp, [string]$contextID, [LogLevel]$level, [string]$message) {
+            $this.Timestamp = $timestamp
+            $this.ContextID = $contextID
+            $this.Level = $level
+            $this.Message = $message
+        }
+
+        #Methods
+        #------------------------------------------------------------------------------------------------------------------
+        [string] ToString() {
+            return  $this.Timestamp.ToString("yyyy-MM-dd HH:mm:ss.fffffff zzz") + [Defaults]::FieldSeparator + $this.Context.ID + [Defaults]::FieldSeparator + $this.Level + [Defaults]::FieldSeparator + $this.Message + [Defaults]::RecordSeparator
+        }
+
+    }
+
     #Log class
     #------------------------------------------------------------------------------------------------------------------
     class Log {
@@ -806,11 +848,11 @@
         #==================================================================================================================
         [System.IO.FileInfo]$LogFile
         [int32]$LogMaxBytes = 10MB
-        [int32]$LogMaxRollovers = 5
+        [int32]$LogMaxRollovers = 4 #in addition to the log file
         [System.IO.FileInfo[]]$RolloverLogs
         [int32]$TailLines = [Defaults]::LogTailLines
         [ordered]$LoggingContext
-        [System.DateTimeOffset]$InstantiatedTime = [System.DateTimeOffset]::Now
+        [System.DateTimeOffset]$InstantiationTime = [System.DateTimeOffset]::Now
         [bool]$EchoMessages = $false
         [string]$FS = [Defaults]::FieldSeparator
         [string]$RS = [Defaults]::RecordSeparator
@@ -837,7 +879,7 @@
         Log([string]$logName) {
             $this.LogFile = $this.NewFileInfo($logName)
             $this.Initialize()
-        }        
+        }
         
         [void] Initialize() {
             # Make sure the log directory exists first, if not, force it to exist
@@ -864,7 +906,7 @@
             # Make sure the log file exists, if not, create it
             if (-not (Test-Path -Path $this.LogFile.FullName)) {
                 try {
-                    Set-Content -Path $this.LogFile.FullName -Force -ErrorAction Stop -Encoding ([System.Text.Encoding]::UTF8) -Value ''
+                    Set-Content -Path $this.LogFile.FullName -Force -ErrorAction Stop -Encoding ([System.Text.Encoding]::UTF8) -Value '' -NoNewLine
                 }
                 catch {
                     # If we can't create the log file, fail
@@ -876,19 +918,41 @@
             $this.RolloverLogs = Get-ChildItem -Path $this.LogFile.Directory -Filter "$($this.LogFile.BaseName).*$($this.LogFile.Extension)" -File |
                 Sort-Object -Property Name -Descending
 
-            # Get the logging context
-            $this.Context = [LogContext]::new()
-
             # If the ContextID isn't already in the log, write the context to the log
-            try {$isFound = (Select-String -Path $this.LogFile.FullName -Pattern ($this.Context.ID) -Quiet -ErrorAction Stop)} catch {$isFound = $false}
-            if (-not $isFound) {
-                $this.Write('Info',"`n$([Draw]::BoxTop(' LOG_CONTEXT ', 'Double','Left'))`n$($this.Context.ToString())`n$([Draw]::BoxBottom(' LOG_CONTEXT ', 'Double','Right'))")
-            }
+            $this.SyncLogContext()
         }
         
 
         # Methods
         #==================================================================================================================
+
+        # ClearContent
+        #------------------------------------------------------------------------------------------------------------------
+        [void] ClearContent([bool]$ClearRollovers = $false) {
+            # Clear the current log file
+            Set-Content -Path $this.LogFile.FullName -Value '' -Force -Encoding $this.encodingName -NoNewLine
+
+            # Clear the rollover logs
+            if ($ClearRollovers) {
+                foreach ($log in $this.RolloverLogs) {
+                    try {
+                        $log.Delete()
+                    }
+                    catch {
+                        try {
+                            # If we can't delete the log, try to clear it by setting the content to an empty string
+                            Write-Warning "Unable to delete log file $($log.FullName). Attempting to clear it instead"
+                            Set-Content -Path $log.FullName -Value '' -Force -Encoding $this.encodingName -NoNewline
+                        }
+                        catch {
+                            # If we can't clear the log, write a warning
+                            Write-Warning "Unable to clear log file $($log.FullName)"
+                        }
+                    }
+                }
+            }
+
+        }
 
         # Debug
         #------------------------------------------------------------------------------------------------------------------
@@ -916,22 +980,22 @@
 
         # FindInLog
         #------------------------------------------------------------------------------------------------------------------
-        [String[]] FindInLog([string] $Pattern) {
-            return $this.FindInLog($Pattern, '*', [DateTime]::MinValue, [DateTime]::MaxValue, '*')
+        [LogEntry[]] FindInLog([string] $Pattern) {
+            return $this.FindInLog($Pattern, '*', [DateTimeOffset]::MinValue, [DateTimeOffset]::MaxValue, '*')
         }
 
         # Finds a string in the log between two dates
-        [String[]] FindInLog([string] $Pattern, [DateTime] $Start, [DateTime] $End) {
+        [LogEntry[]] FindInLog([string] $Pattern, [DateTimeOffset] $Start, [DateTimeOffset] $End) {
             return $this.FindInLog($Pattern, '*', $Start, $End, '*')
         }
         
         # Finds a string in the log of a specific level
-        [String[]] FindInLog([string] $Pattern, [string] $Level) {
-            return $this.FindInLog($Pattern, $Level, [DateTime]::MinValue, [DateTime]::MaxValue, '*')
+        [LogEntry[]] FindInLog([string] $Pattern, [string] $Level) {
+            return $this.FindInLog($Pattern, $Level, [DateTimeOffset]::MinValue, [DateTimeOffset]::MaxValue, '*')
         }
 
         # Finds a string in the log with a specific level and contextHash between two dates
-        [String[]] FindInLog([string] $Pattern, [string] $Level, [DateTime] $Start, [DateTime] $End, [string]$ContextHash) {
+        [LogEntry[]] FindInLog([string] $Pattern, [string] $Level, [DateTimeOffset] $Start, [DateTimeOffset] $End, [string]$ContextHash) {
             # If the properties haven't been cleared, and the log exists, tail the log and return the result
             if ($this.LogFile.FullName -and (Test-Path -Path $this.LogFile.FullName)) {
                 # Parse the log file into records using the record separator
@@ -942,60 +1006,36 @@
                         ForEach-Object {
                             $fields = ($_ -split $log.FS).ForEach({$_.Trim()})
                             if ($fields.Count -eq 4) {
-                                @{
-                                    TimeStamp = $fields[0]
-                                    ContextID = $fields[1]
-                                    Level = $fields[2]
-                                    Message = $fields[3]
-                                }
+                                [LogEntry]::new($fields[0], $fields[1], $fields[2], $fields[3])
                             }
                         } | Where-Object {
-                            $_.Message -like $Pattern -and $_.Level -like $Level -and $_.ContextHash -like $ContextHash -and [DateTime]$_.TimeStamp -ge $Start -and [DateTime]$_.TimeStamp -le $End
+                            $_.Message -like $Pattern -and $_.Level -like $Level -and $_.ContextHash -like $ContextHash -and [DateTimeOffset]$_.TimeStamp -ge $Start -and [DateTimeOffset]$_.TimeStamp -le $End
                         } # Only return those records that match the pattern in the message
             } else {
-                return [String[]]@()
+                return [LogEntry[]]@()
             }                
-        }        
+
+        }
 
         # GetContent
         #------------------------------------------------------------------------------------------------------------------
-        [string] GetContent() {
+        [LogEntry[]] GetContent() {
             # If the properties haven't been cleared, and the log exists, tail the log and return the result
             if ($this.LogFile.FullName -and (Test-Path -Path $this.LogFile.FullName)) {
                 # Parse the log file into records using the record separator
                 return (Get-Content -Path $this.LogFile.FullName -Raw) -split $this.RS |
-                    # Remove empty records
-                    Where-Object {$_}
-                                    
-            } else {return [string[]]@()}
-        }
-
-        # GetDateRangeOfLog
-        #------------------------------------------------------------------------------------------------------------------
-        [ordered] GetDateRangeOfLog() {
-            # If the properties haven't been cleared, and the log exists
-            if ($this.LogFile.FullName -and (Test-Path -Path $this.LogFile.FullName)) {
-                # Get the date from the first record in the log
-                $first = ((Get-Content -Path $this.LogFile.FullName -First 1) -split $this.FS)[0]
-
-                # Get the date from the last record in the log
-                $last = (((Get-Content -Path $this.LogFile.FullName -Raw) -split $this.RS | Where-Object {$_} | Select-Object -Last 1) -split $this.FS)[0]
-
-                # Return the date range
-                return [ordered]@{
-                    First = [DateTimeOffset]::ParseExact($first, "yyyy-MM-dd HH:mm:ss.fffffff zzz", [System.Globalization.CultureInfo]::InvariantCulture)
-                    Last = [DateTimeOffset]::ParseExact($last, "yyyy-MM-dd HH:mm:ss.fffffff zzz", [System.Globalization.CultureInfo]::InvariantCulture)
-                    TimeSpan = [DateTimeOffset]::ParseExact($last, "yyyy-MM-dd HH:mm:ss.fffffff zzz", [System.Globalization.CultureInfo]::InvariantCulture) - [DateTimeOffset]::ParseExact($first, "yyyy-MM-dd HH:mm:ss.fffffff zzz", [System.Globalization.CultureInfo]::InvariantCulture)
-                }
-            }
-            else {
-                return [ordered]@{
-                    First = [DateTimeOffset]::MinValue
-                    Last = [DateTimeOffset]::MinValue
-                    TimeSpan = [DateTimeOffset]::MinValue - [DateTimeOffset]::MinValue
-                }
+                    # Parse each record into fields using the field separator
+                    ForEach-Object {
+                        $fields = ($_ -split $log.FS).ForEach({$_.Trim()})
+                        if ($fields.Count -eq 4) {
+                            [LogEntry]::new($fields[0], $fields[1], $fields[2], $fields[3])
+                        }
+                }                    
+            } else {
+                return [LogEntry[]]@()
             }
         }
+
 
         # Info
         #------------------------------------------------------------------------------------------------------------------
@@ -1005,8 +1045,13 @@
 
         # NewEntryString
         #------------------------------------------------------------------------------------------------------------------
-        hidden [string] NewEntryString([LogLevel]$Level, [string]$Message) {
+        [string] NewEntryString([LogLevel]$Level, [string]$Message) {
             return "{0}{1}[{2}]{3}{4}{5}{6}{7}" -f [DateTimeOffset]::Now.ToString("yyyy-MM-dd HH:mm:ss.fffffff zzz"), $this.FS, $this.Context.ID, $this.FS, $Level, $this.FS, $Message, $this.RS
+        }
+
+        # Overload for NewEntryString using custom datetimeoffset
+        [string] NewEntryString([DateTimeOffset]$DateTimeOffset, [LogLevel]$Level, [string]$Message) {
+            return "{0}{1}[{2}]{3}{4}{5}{6}{7}" -f $DateTimeOffset.ToString("yyyy-MM-dd HH:mm:ss.fffffff zzz"), $this.FS, $this.Context.ID, $this.FS, $Level, $this.FS, $Message, $this.RS
         }
 
         # NewFileInfo 
@@ -1092,7 +1137,7 @@
                             # disk intensive than a rename, but it's better than losing the log contents.
                             $firstError = $_
                             try {
-                                Get-Content -Path $oldLog -Raw -Force -ErrorAction Stop | Set-Content -Path $newLog -Force -ErrorAction Stop -Encoding $this.encodingName
+                                Get-Content -Path $oldLog -Raw -Force -ErrorAction Stop | Set-Content -Path $newLog -Force -ErrorAction Stop -Encoding $this.encodingName -NoNewLine
                             }
                             catch {
                                 Write-Host $firstError
@@ -1113,7 +1158,7 @@
                     $firstError = $_
                     # if we can't rename the log, try to copy its contents to the archive
                     try {
-                        Get-Content -Path $this.LogFile.FullName -Raw -Force -ErrorAction Stop | Set-Content -Path $newLog -Encoding $this.encodingName -Force -ErrorAction Stop
+                        Get-Content -Path $this.LogFile.FullName -Raw -Force -ErrorAction Stop | Set-Content -Path $newLog -Encoding $this.encodingName -Force -ErrorAction Stop -NoNewLine
                     }
                     catch {
                         Write-Error $firstError
@@ -1121,15 +1166,20 @@
                         throw "Unable to rollover $($this.LogFile.FullName) --> $newLog"
                     }
                     # clear the log file contents since we couldn't rename it
-                    Set-Content -Path $this.LogFile.FullName -Value '' -Force -Encoding $this.encodingName -ErrorAction Stop
+                    for ($i = 0; $i -lt 3; $i++) {
+                        # try to clear the log file contents up to 3 times
+                        try {
+                            Set-Content -Path $this.LogFile.FullName -Value '' -Force -Encoding $this.encodingName -ErrorAction Stop -NoNewLine
+                        }
+                        catch {
+                            # if we can't clear the log file, write a warning
+                            Write-Error "Unable to clear log file $($this.LogFile.FullName)`n$_"
+                        }
+                        $this.LogFile.Refresh()
+                        if ($this.LogFile.Length -eq 0) {break}
+                        Start-Sleep -Seconds 1
+                    }
                 }
-
-                # re-populate the list of rollover logs (this is a bit redundant, but it makes sure the list is for sure up to date)
-                $this.RolloverLogs = Get-ChildItem -Path $this.LogFile.Directory -Filter "$($this.LogFile.BaseName).*$($this.LogFile.Extension)" -File |
-                    Sort-Object -Property Name -Descending
-
-                # clear the context so the context will always be written to the new log
-                $this.Context = $null
         }
 
         # Size
@@ -1146,10 +1196,10 @@
                 # Parse the log file into records using the record separator
                 return (Get-Content -Path $this.LogFile.FullName -Raw) -split $this.RS |
                     # Remove any empty records
-                    Where-Object {$_} |
+                    Where-Object {$_}|
                         # Get the last $lines records
                         Select-Object -Last $lines 
-            } else {
+            }else {
                 return [string[]]@()
             }
         }
@@ -1166,7 +1216,7 @@
                 LOG_ECHO_MESSAGES = $this.EchoMessages
                 LOG_ENCODING = $this.encodingName
                 LOG_ROLLOVER_LOGS = $this.RolloverLogs.Count
-                LOG_INSTANTIATED_TIME = $this.InstantiatedTime.ToString("yyyy-MM-dd HH:mm:ss.fffffff zzz")
+                LOG_INSTANTIATION_TIME = $this.InstantiationTime.ToString("yyyy-MM-dd HH:mm:ss.fffffff zzz")
                 LOG_FIELD_SEPARATOR = $this.FS.ToEscapedString()
                 LOG_RECORD_SEPARATOR = $this.RS.ToEscapedString()
                 LOG_CONTEXT_ID = $this.Context.ID
@@ -1176,6 +1226,19 @@
         # Overload for Tail using default TailLines property
         [string[]] Tail() {
             return $this.Tail($this.TailLines)
+        }
+
+        # SyncLogContext
+        #------------------------------------------------------------------------------------------------------------------
+        [void] SyncLogContext() {
+            # Get the current logging context into this object
+            $this.Context = [LogContext]::new()
+            # Write the context to the log if it's not already there
+            if (-not (Select-String -Path $this.LogFile -Pattern ($this.Context.ID) -Quiet)) {
+                $logDetails = "`n$([Draw]::BoxTop(' LOG ', 'Double','Left'))`n$($this.ToString())`n$([Draw]::BoxBottom(' LOG ', 'Double','Right'))"
+                $contextDetails = "`n$([Draw]::BoxTop(' CONTEXT ', 'Double','Left'))`n$($this.Context.ToString())`n$([Draw]::BoxBottom(' CONTEXT ', 'Double','Right'))"
+                $this.Write('Info',"$logDetails`n$contextDetails")
+            }
         }
 
         # Warn
@@ -1191,31 +1254,66 @@
             $msg = $this.NewEntryString($Level, $Message)
             #see if the message will make the log exceed the LogMaxBytes property
             $this.LogFile.Refresh() #refresh size info
-            if (([system.text.encoding]::utf8.GetByteCount($msg) + $this.LogFile.Length) -ge $this.LogMaxBytes) {
+            $msgByteCount = [system.text.encoding]::utf8.GetByteCount($msg)
+            if ($msgByteCount -ge $this.LogMaxBytes) {throw "This message alone exceeds the LogMaxBytes property and can't be written"}
+            if (($msgByteCount + $this.LogFile.Length) -ge $this.LogMaxBytes) {
                 $this.RollOver() # if it will exceed the LogMaxBytes, rollover the log
-                #get the current logging context
-                $this.Context = [LogContext]::new()
-                #write the context to the log
-                $logDetails = "`n$([Draw]::BoxTop(' LOG_DETAILS ', 'Double','Left'))`n$($this.ToString())`n$([Draw]::BoxBottom(' LOG_DETAILS ', 'Double','Right'))"
-                $contextDetails = "`n$([Draw]::BoxTop(' LOG_CONTEXT ', 'Double','Left'))`n$($this.Context.ToString())`n$([Draw]::BoxBottom(' LOG_CONTEXT ', 'Double','Right'))"
-                $msg = $this.NewEntryString('Info',"$logDetails`n$contextDetails")
-                Out-File -FilePath $this.LogFile.FullName -InputObject $msg -Append -Encoding $this.encodingName -ErrorAction Stop -Force -NoNewline
-                #generate the log entry again, as the the original timestamp has changed
-                $msg = $this.NewEntryString($Level, $Message)
+                $this.Initialize() #re-initialize the log
+                $msg = $this.NewEntryString($Level, $Message) #generate the log entry we were going to write since some time has elapsed
             }
             # Write the message to the log
             Out-File -FilePath $this.LogFile.FullName -InputObject $msg -Append -Encoding $this.encodingName -ErrorAction Stop -Force -NoNewline
 
             # Echo the message to the console if EchoMessages is true
-            if ($this.EchoMessages) {
-                $this.Echo($msg, $level)
-            }
+            if ($this.EchoMessages) {$this.Echo($msg, $level)}
         }
 
         # overload to write an array of messages
-        [void] Write([LogLevel] $Level = 'Info', [string[]] $Messages) {
+        [void] Write([LogLevel] $Level = 'Info',[System.Array] $Messages) {
+            $this.LogFile.Refresh() # Refresh file info to get the latest file size
+            $availableSpace = $this.LogMaxBytes - $this.LogFile.Length
+        
+            $msgList = New-Object System.Collections.Generic.List[string]
+            $totalSizeOfMessages = 0
+        
             foreach ($message in $Messages) {
-                $this.Write($Level, $message)
+                $msg = $this.NewEntryString($Level, $message)
+                $msgSize = [System.Text.Encoding]::UTF8.GetByteCount($msg)
+        
+                # Error out if the message alone exceeds the LogMaxBytes property
+                if ($msgSize -ge $this.LogMaxBytes) {throw "This message alone exceeds the LogMaxBytes property and can't be written"}
+                # If adding the new message will exceed the LogMaxBytes property, rollover and reinitialize
+                if ($totalSizeOfMessages + $msgSize -gt $availableSpace) {
+                    # Write accumulated messages to the log file before rolling over
+                    if ($msgList.Count -gt 0) {
+                        $batchedMessage = $msgList -join ''
+                        Out-File -FilePath $this.LogFile.FullName -InputObject $batchedMessage -Append -Encoding $this.encodingName -ErrorAction Stop -Force -NoNewline
+                        # Echo the batched messages so far if EchoMessages is true
+                        if ($this.EchoMessages) {$this.Echo($batchedMessage)}
+                        $msgList.Clear() # Clear the list after writing
+                    }
+                    # Rollover and reinitialize
+                    $this.RollOver()
+                    $this.Initialize()
+                    $this.LogFile.Refresh() # Refresh to get the new file's size
+                    $availableSpace = $this.LogMaxBytes - $this.LogFile.Length
+                    # Add the message that was in-flight when the rollover occurred to the list
+                    $msgList.Add($msg)
+                    $totalSizeOfMessages = $msgSize
+                }
+                else {
+                    # Add each message to the list and increment the total size of messages in the list
+                    $msgList.Add($msg)
+                    $totalSizeOfMessages += $msgSize
+                }
+            }
+        
+            # After processing all messages, write any remaining messages in the list to the log
+            if ($msgList.Count -gt 0) {
+                $batchedMessage = $msgList -join ''
+                Out-File -FilePath $this.LogFile.FullName -InputObject $batchedMessage -Append -Encoding $this.encodingName -ErrorAction Stop -Force -NoNewline
+                # Echo the batched messages so far if EchoMessages is true
+                if ($this.EchoMessages) {$this.Echo($batchedMessage)}
             }
         }
     }
@@ -1359,6 +1457,101 @@
         }
     }
 
+    #Retry class
+    #------------------------------------------------------------------------------------------------------------------
+    class Retry {
+
+        # static method to immediately invoke a script block and retry a specified number of times with a specified delay between retries
+        static [bool] Invoke([int]$attempts, [int]$delay, [scriptblock]$scriptBlock) {
+            $tried = 0
+            while ($tried -lt $attempts) {
+                try {
+                    $scriptBlock.Invoke()
+                    return $true
+                }
+                catch {
+                    $tried++
+                    if ($tried -lt $attempts) {
+                        Start-Sleep -Seconds $delay
+                    }
+                    else {
+                        return $false
+                    }
+                }
+            }
+            return $false
+        }
+
+        # Instance part of the class for times you need have different retry settings for different script blocks or reuse the same settings
+        [int]$Attempts
+        [int]$Delay
+        [scriptblock]$ScriptBlock
+
+        #Constructors
+        #------------------------------------------------------------------------------------------------------------------
+        Retry([int]$attempts, [int]$delay, [scriptblock]$scriptBlock) {
+            $this.Attempts = $attempts
+            $this.Delay = $delay
+            $this.ScriptBlock = $scriptBlock
+        }
+
+        #Methods
+        #------------------------------------------------------------------------------------------------------------------
+        [void] Start() {
+            $tried = 0
+            while ($tried -lt $this.Attempts) {
+                try {
+                    $this.ScriptBlock.Invoke()
+                    break
+                }
+                catch {
+                    $tried++
+                    if ($tried -lt $this.Attempts) {
+                        Start-Sleep -Seconds $this.Delay
+                    }
+                    else {
+                        throw $_
+                    }
+                }
+            }
+        }
+    }
+
+    #RetryResult class
+    #------------------------------------------------------------------------------------------------------------------
+    class RetryResult {
+        [bool]$Success
+        [int]$Attempts
+        [int]$Delay
+        [scriptblock]$ScriptBlock
+        [object]$Result
+        [object]$Err
+
+        #Constructors
+        #------------------------------------------------------------------------------------------------------------------
+        RetryResult([bool]$success, [int]$attempts, [int]$delay, [scriptblock]$scriptBlock, [object]$result, [object]$err) {
+            $this.Success = $success
+            $this.Attempts = $attempts
+            $this.Delay = $delay
+            $this.ScriptBlock = $scriptBlock
+            $this.Result = $result
+            $this.Error = $err
+        }
+
+        #Methods
+        #------------------------------------------------------------------------------------------------------------------
+        [string] ToString() {
+            return ([ordered]@{
+                SUCCESS = $this.Success
+                ATTEMPTS = $this.Attempts
+                DELAY = $this.Delay
+                SCRIPT_BLOCK = $this.ScriptBlock.ToString()
+                RESULT = $this.Result
+                ERROR = $this.Err
+            }).ToString()
+        }
+    }
+
     #User class
     #------------------------------------------------------------------------------------------------------------------
     class User {
@@ -1386,7 +1579,7 @@
                 USER_IDENTIFIER = $this.Identifier
             }).ToString()
         }
-    }    
+    }
     
     #endregion
 #╚════════════════════════════════════════════════════════════════════════════════════════════════════════════ CLASSES ═╝
@@ -1458,7 +1651,7 @@
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName ToBase64 -Force -Value {
         [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($this ?? ''))
-    }    
+    }
 
     #ToByteArray
     #------------------------------------------------------------------------------------------------------------------
@@ -1476,7 +1669,7 @@
         foreach ($char in $InputString.ToCharArray()) {
             $unicodeCategory = [Char]::GetUnicodeCategory($char)
             switch ($unicodeCategory) {
-               {$_ -in 'Control', 'Surrogate', 'OtherNotAssigned', 'LineSeparator', 'ParagraphSeparator', 'Format'} {
+               {$_ -in 'Control', 'Surrogate', 'OtherNotAssigned', 'LineSeparator', 'ParagraphSeparator', 'Format'}{
                     $charCode = [int]$char
                     [void]$escapedString.Append('`u{'+ $charCode.ToString("X4")+ '}')
                 }
@@ -1531,14 +1724,7 @@
     Update-TypeData -TypeName System.String -MemberType ScriptProperty -MemberName IsNullOrWhiteSpace -Force -Value {
         [string]::IsNullOrWhiteSpace($this)
     }
-    
-
-    #Obfuscate
-    #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName Obfuscate -Force -Value {
-        [Encryption]::Obfuscate($this)
-    }
-    
+      
 
     #MD5
     #------------------------------------------------------------------------------------------------------------------
@@ -1637,13 +1823,6 @@
         [Hash]::new($this, 'SHA512', $format)
     }
     
-
-    #Deobfuscate
-    #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName Deobfuscate -Force -Value {
-        [Encryption]::Deobfuscate($this)
-    }
-
     #endregion    
 #╚══════════════════════════════════════════════════════════════════════════════════════════════════════ EXTEND String ═╝
 
@@ -1769,11 +1948,11 @@
         [void]$xml.AppendChild($root)
         $this.GetEnumerator() | ForEach-Object {
             $node = $xml.CreateElement($_.Key)
-            $node.InnerText = if($_.Value -is [System.Array]) { $_.Value -join ',' } else { $_.Value }
+            $node.InnerText = if($_.Value -is [System.Array]) { $_.Value -join ',' }else { $_.Value }
             [void]$root.AppendChild($node)
-        } | Out-Null
+        }| Out-Null
         $xml.OuterXml
-    }    
+    }
 
     #endregion
 #╚═══════════════════════════════════════════════════════════════════════════════════════════════════ EXTEND Hashtable ═╝
@@ -1839,9 +2018,9 @@
         [void]$xml.AppendChild($root)
         $this.GetEnumerator() | ForEach-Object {
             $node = $xml.CreateElement($_.Key)
-            $node.InnerText = if($_.Value -is [System.Array]) { $_.Value -join ',' } else { $_.Value }
+            $node.InnerText = if($_.Value -is [System.Array]) { $_.Value -join ',' }else { $_.Value }
             [void]$root.AppendChild($node)
-        } | Out-Null
+        }| Out-Null
         $xml.OuterXml
     }
         
@@ -1903,16 +2082,8 @@
 
 #╔═ Script ═════════════════════════════════════════════════════════════════════════════════════════════════════════════╗
     #region
-    
         $log = [Log]::new('CsLog')
         $log.EchoMessages = $false
-        1..10 | ForEach-Object {$log.Write('Debug',"This is a test message $_")}
-        1..10 | ForEach-Object {$log.Write('Info',"This is a test message $_")}
-        1..10 | ForEach-Object {$log.Write('Warn',"This is a test message $_")}
-        1..10 | ForEach-Object {$log.Write('Error',"This is a test message $_")}
-        1..10 | ForEach-Object {$log.Write('Fatal',"This is a test message $_")}
-    
+        $log.FindInLog('*', '*', [DateTimeOffset]::MinValue, [DateTimeOffset]::MaxValue, '*')  
     #endregion
 #╚═════════════════════════════════════════════════════════════════════════════════════════════════════════════ Script ═╝
-
-
