@@ -28,10 +28,16 @@
     #------------------------------------------------------------------------------------------------------------------
     enum LineStyle {
         # This enum is used to specify the style of box to draw
+        None
         Light
+        LightNoSides
         Heavy
+        HeavyNoSides
         Double
+        DoubleNoSides
         Thick
+        ThickNoSides
+        Custom
     }
 
     #LogLevel enum
@@ -108,77 +114,161 @@
         }
     }
     
-
-    #BoxLight class
+    #Box class
     #------------------------------------------------------------------------------------------------------------------
-    class BoxLight {
-        # This class holds the default characters for the light box drawing
-        static [string] $Horizontal = '─'
-        static [string] $Vertical = '│'
-        static [string] $TopLeft = '┌'
-        static [string] $TopRight = '┐'
-        static [string] $BottomLeft = '└'
-        static [string] $BottomRight = '┘'
-        static [string] $LeftTee = '├'
-        static [string] $RightTee = '┤'
-        static [string] $TopTee = '┬'
-        static [string] $BottomTee = '┴'
-        static [string] $Cross = '┼'
-    }
+    class Box {
+        [LineStyle] $LineStyle
+        [int] $Width
+        [TextAlignment] $TopAlignment
+        [TextAlignment] $MiddleAlignment
+        [TextAlignment] $BottomAlignment
+        [string] $HorizontalTop
+        [string] $HorizontalLine
+        [string] $HorizontalBottom
+        [string] $VerticalLeft
+        [string] $VerticalLine
+        [string] $VerticalRight
+        [string] $TopLeft
+        [string] $TopRight
+        [string] $BottomLeft
+        [string] $BottomRight
+        [string] $LeftTee
+        [string] $RightTee
+        [string] $TopTee
+        [string] $BottomTee
+        [string] $Cross
     
+        hidden static [string[]] $None = ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '
+        hidden static [string[]] $Light = '─','─','─', '│', '│','│', '┌', '┐', '└', '┘', '├', '┤', '┬', '┴', '┼'
+        hidden static [string[]] $LightNoSides = '─','─','─', ' ', '│',' ', '┌', '┐', '└', '┘', '├', '┤', '┬', '┴', '┼'
+        hidden static [string[]] $Heavy = '━','━','━', '┃', '┃', '┃', '┏', '┓', '┗', '┛', '┣', '┫', '┳', '┻', '╋'
+        hidden static [string[]] $HeavyNoSides = '━','━','━', ' ', '┃', ' ', '┏', '┓', '┗', '┛', '┣', '┫', '┳', '┻', '╋'
+        hidden static [string[]] $Double = '═','═','═', '║', '║', '║', '╔', '╗', '╚', '╝', '╠', '╣', '╦', '╩', '╬'
+        hidden static [string[]] $DoubleNoSides = '═','═','═', ' ', '║', ' ', '╔', '╗', '╚', '╝', '╠', '╣', '╦', '╩', '╬'
+        hidden static [string[]] $Thick = '█', '█', '█', '██', '██', '██', '██', '██', '██', '██', '██', '██', '██', '██', '██'
+        hidden static [string[]] $ThickNoSides = '█', '█', '█', '  ', '██', '  ', '██', '██', '██', '██', '██', '██', '██', '██', '██'
+        hidden static [hashtable] $StyleMap = @{
+            'None' = [Box]::None
+            'Light' = [Box]::Light
+            'LightNoSides' = [Box]::LightNoSides
+            'Heavy' = [Box]::Heavy
+            'HeavyNoSides' = [Box]::HeavyNoSides
+            'Double' = [Box]::Double
+            'DoubleNoSides' = [Box]::DoubleNoSides
+            'Thick' = [Box]::Thick
+            'ThickNoSides' = [Box]::ThickNoSides
+            'Custom' = [Box]::None
+        }
 
-    #BoxHeavy class
-    #------------------------------------------------------------------------------------------------------------------
-    class BoxHeavy {
-        # This class holds the default characters for the heavy box drawing
-        static [string] $Horizontal = '━'
-        static [string] $Vertical = '┃'
-        static [string] $TopLeft = '┏'
-        static [string] $TopRight = '┓'
-        static [string] $BottomLeft = '┗'
-        static [string] $BottomRight = '┛'
-        static [string] $LeftTee = '┣'
-        static [string] $RightTee = '┫'
-        static [string] $TopTee = '┳'
-        static [string] $BottomTee = '┻'
-        static [string] $Cross = '╋'
-    }
+        # Default constructor
+        Box() {
+            $this.LineStyle = [Defaults]::BoxLineStyle
+            $this.Width = [Defaults]::BoxWidth
+            $this.TopAlignment = [Defaults]::BoxTopAlignment
+            $this.MiddleAlignment = [Defaults]::BoxMiddleAlignment
+            $this.BottomAlignment = [Defaults]::BoxBottomAlignment
+            $styleValues = [Box]::StyleMap[$this.LineStyle.ToString()]
+            if ($null -eq $styleValues) {$styleValues = [Box]::None}
+            $this.HorizontalTop = $styleValues[0]
+            $this.HorizontalLine = $styleValues[1]
+            $this.HorizontalBottom = $styleValues[2]
+            $this.VerticalLeft = $styleValues[3]
+            $this.VerticalLine = $styleValues[4]
+            $this.VerticalRight = $styleValues[5]
+            $this.TopLeft = $styleValues[6]
+            $this.TopRight = $styleValues[7]
+            $this.BottomLeft = $styleValues[8]
+            $this.BottomRight = $styleValues[9]
+            $this.LeftTee = $styleValues[10]
+            $this.RightTee = $styleValues[11]
+            $this.TopTee = $styleValues[12]
+            $this.BottomTee = $styleValues[13]
+            $this.Cross = $styleValues[14]
+        }
+
+        # Instance Methods
+
+        # Draw a box (top, middle, bottom) with text and alignment
+        [string] DrawBox([string]$topText, [string]$middleText, [string]$bottomText) {
+            $sb = New-Object System.Text.StringBuilder
+            $sb.AppendLine($this.DrawTop($topText))
+            $sb.AppendLine($this.DrawMiddle($middleText))
+            $sb.AppendLine($this.DrawBottom($bottomText))
+            return $sb.ToString()
+        }
+
+        # Draw a straight line in the style of the box
+        [string] DrawLine() {
+            return $this.HorizontalLine * $this.width
+        }
+        
+        [string] DrawTop([string]$text) {
+            return [Box]::FormatTextWithBox($this.Width, $text, $this.TopAlignment, $this.TopLeft, $this.HorizontalTop, $this.TopRight)
+        }
     
-
-    #BoxDouble class
-    #------------------------------------------------------------------------------------------------------------------
-    class BoxDouble {
-        # This class holds the default characters for the double box drawing
-        static [string] $Horizontal = '═'
-        static [string] $Vertical = '║'
-        static [string] $TopLeft = '╔'
-        static [string] $TopRight = '╗'
-        static [string] $BottomLeft = '╚'
-        static [string] $BottomRight = '╝'
-        static [string] $LeftTee = '╠'
-        static [string] $RightTee = '╣'
-        static [string] $TopTee = '╦'
-        static [string] $BottomTee = '╩'
-        static [string] $Cross = '╬'
-    }
+        [string] DrawMiddle([string]$text) {
+            $outList = New-Object System.Collections.Generic.List[string]
+            foreach ($line in $text -split "`r?`n") {
+                $lineOut = [Box]::FormatTextWithBox($this.Width, $line, $this.MiddleAlignment, $this.VerticalLeft, ' ', $this.VerticalRight)
+                $outList.Add($lineOut)
+            }
+            return $outList -join "`n"
+        }
     
+        [string] DrawBottom([string]$text) {
+            return [Box]::FormatTextWithBox($this.Width, $text, $this.BottomAlignment, $this.BottomLeft, $this.HorizontalBottom, $this.BottomRight)
+        }
 
-    #BoxThick class
-    #------------------------------------------------------------------------------------------------------------------
-    class BoxThick {
-        # This class holds the default characters for the thick box drawing
-        static [string] $Horizontal = '█'
-        static [string] $Vertical = '██'
-        static [string] $TopLeft = '██'
-        static [string] $TopRight = '██'
-        static [string] $BottomLeft = '██'
-        static [string] $BottomRight = '██'
-        static [string] $LeftTee = '██'
-        static [string] $RightTee = '██'
-        static [string] $TopTee = '██'
-        static [string] $BottomTee = '██'
-        static [string] $Cross = '██'
-    }
+        # Static Methods
+
+        # Create a completely custom box
+        static [Box] NewCustomBox([LineStyle] $style, [int] $width, [TextAlignment] $topAlignment, [TextAlignment] $middleAlignment, [TextAlignment] $bottomAlignment, [string] $HorizontalTop, [string] $HorizontalLine, [string] $HorizontalBottom, [string] $VerticalLeft, [string] $VerticalLine, [string] $VerticalRight, [string] $TopLeft, [string] $TopRight, [string] $BottomLeft, [string] $BottomRight, [string] $LeftTee, [string] $RightTee, [string] $TopTee, [string] $BottomTee, [string] $Cross) {
+            $box = [Box]::new()
+            $box.Width = $width
+            $box.TopAlignment = $topAlignment
+            $box.MiddleAlignment = $middleAlignment
+            $box.BottomAlignment = $bottomAlignment
+            $box.Style = $style
+            $box.HorizontalTop = $HorizontalTop
+            $box.HorizontalLine = $HorizontalLine
+            $box.HorizontalBottom = $HorizontalBottom
+            $box.VerticalLeft = $VerticalLeft
+            $box.VerticalLine = $VerticalLine
+            $box.VerticalRight = $VerticalRight
+            $box.TopLeft = $TopLeft
+            $box.TopRight = $TopRight
+            $box.BottomLeft = $BottomLeft
+            $box.BottomRight = $BottomRight
+            $box.LeftTee = $LeftTee
+            $box.RightTee = $RightTee
+            $box.TopTee = $TopTee
+            $box.BottomTee = $BottomTee
+            $box.Cross = $Cross            
+            return $box
+        }
+
+        # Hidden Static Methods    
+        hidden static [string] FormatTextWithBox([int]$width, [string]$text, [TextAlignment]$alignment, [string]$leftCharacter, [string]$padCharacter, [string]$rightCharacter) {
+            $effectiveWidth = $width - ($leftCharacter.Length + $rightCharacter.Length)
+            $alignedText = $null
+            switch ($alignment) {
+                'Center' {
+                    $totalPadding = $effectiveWidth - $text.Length
+                    $leftPadding = [Math]::Floor($totalPadding / 2)
+                    $rightPadding = [Math]::Ceiling($totalPadding / 2)
+                    $alignedText = $text.PadLeft($text.Length + $leftPadding, $padCharacter).PadRight($text.Length + $rightPadding, $padCharacter)
+                }
+                'Left' {
+                    $alignedText = $text.PadRight($effectiveWidth, $padCharacter)
+                }
+                'Right' {
+                    $alignedText = $text.PadLeft($effectiveWidth, $padCharacter)
+                }
+            }            
+            return $leftCharacter + $alignedText + $rightCharacter
+        }
+
+    }    
 
     #Defaults class
     #------------------------------------------------------------------------------------------------------------------
@@ -192,18 +282,17 @@
         static [string] $FieldSeparator = "`u{200B} " # Zero-width space + space
         static [string] $RecordSeparator = "`u{200B}`n" # Zero-width space and a newline
         static [int] $Indent = 4
-        static [int] $ConsoleWidth = 120
-        static [LineStyle] $LineStyle = [LineStyle]::Double
-        static [int] $TextAlignment = [TextAlignment]::Left
+        static [int] $BoxWidth = 120
+        static [LineStyle] $BoxLineStyle = [LineStyle]::DoubleNoSides
+        static [TextAlignment] $BoxTopAlignment = [TextAlignment]::Left
+        static [TextAlignment] $BoxMiddleAlignment = [TextAlignment]::Left
+        static [TextAlignment] $BoxBottomAlignment = [TextAlignment]::Right
+        static [Box]$Box = [Box]::new()
         static [HashAlgorithm] $HashAlgorithm = 'MD5'
         static [BinaryOutputType] $BinaryOutputType = 'Base64'
         static [int] $EncryptionKeySize = 256
         static [int] $EncryptionIVSize = 128
         static [int] $EncryptionIterations = 100000
-        static [int] $ObfuscationKeySize = 128
-        static [int] $ObfuscationIVSize = 128
-        static [int] $ObfuscationIterations = 10
-        static [byte[]] $ObfuscationString = [System.Text.Encoding]::UTF8.GetBytes('HppjmX3CBynZzbLIE8kLC/NRJ8Z5zLLF') # for obfuscating data
         static [System.IO.FileInfo]$LogDirectory = [System.IO.Path]::Combine($env:TEMP, '1E\Logs')
         static [System.IO.FileInfo]$LogFallbackDirectory = $env:TEMP
         static [string]$LogPrefix = '1e.CustomerSuccess.'
@@ -273,162 +362,6 @@
                 'DEVICE_SERIAL_NUMBER' = $this.SerialNumber
             }).ToString()
         }
-    }
-
-    #Draw class
-    #------------------------------------------------------------------------------------------------------------------
-    class Draw {
-        # This class is used to draw boxes around text and draw lines/dividers between sections
-
-        #Line
-        #--------------------------------------------------------------
-        static [string] Line() {return [Draw]::Line([Defaults]::LineStyle, [Defaults]::ConsoleWidth)}
-        static [string] Line([LineStyle] $LineStyle) {return [Draw]::Line($LineStyle, [Defaults]::ConsoleWidth)}
-        static [string] Line([String] $LineStyle) {return [Draw]::Line($LineStyle, [Defaults]::ConsoleWidth)}
-        static [string] Line([int] $width) {return [Draw]::Line([Defaults]::LineStyle, $width)}
-        static [string] Line([LineStyle] $LineStyle, [int] $width) {
-            $style = switch ($LineStyle) {
-                'Light' {[BoxLight]::Horizontal}
-                'Heavy' {[BoxHeavy]::Horizontal}
-                'Double'{[BoxDouble]::Horizontal}
-                'Thick'{[BoxThick]::Horizontal}
-            }
-            return $style * ($width / $style.Length)
-        }
-        
-
-        #BoxTop
-        #--------------------------------------------------------------
-        static [string] BoxTop() {return [Draw]::BoxTop('', [Defaults]::ConsoleWidth, [Defaults]::LineStyle, [Defaults]::TextAlignment)}
-        static [string] BoxTop([string] $text) {return [Draw]::BoxTop($text, [Defaults]::ConsoleWidth, [LineStyle]::Heavy, [Defaults]::TextAlignment)}
-        static [string] BoxTop([string] $text, [string] $LineStyle) {return [Draw]::BoxTop($text, [Defaults]::ConsoleWidth, $LineStyle, [Defaults]::TextAlignment)}
-        static [string] BoxTop([string] $text, [int] $width) {return [Draw]::BoxTop($text, $width, [Defaults]::LineStyle, [Defaults]::TextAlignment)}
-        static [string] BoxTop([string] $text, [LineStyle] $LineStyle) {return [Draw]::BoxTop($text, [Defaults]::ConsoleWidth, $LineStyle, [Defaults]::TextAlignment)}
-        static [string] BoxTop([string] $text, [LineStyle] $LineStyle, [TextAlignment] $alignment) {return [Draw]::BoxTop($text, [Defaults]::ConsoleWidth, $LineStyle, $alignment)}
-        static [string] BoxTop([string] $text, [TextAlignment] $alignment) {return [Draw]::BoxTop($text, [Defaults]::ConsoleWidth, [Defaults]::LineStyle, $alignment)}
-        static [string] BoxTop([string] $text, [int] $width, [LineStyle] $LineStyle, [TextAlignment] $alignment) {
-            $style = switch ($LineStyle) {
-                'Light' {[BoxLight]}
-                'Heavy' {[BoxHeavy]}
-                'Double'{[BoxDouble]}
-                'Thick'{[BoxThick]}
-            }
-            $effectiveWidth = $width - ($style::Horizontal.Length*2)
-            $text = switch ($alignment) {
-                'Left' {
-                    $leftPadding = $style::Horizontal.Length
-                    $rightPadding = $effectiveWidth - $text.Length - $style::Horizontal.Length
-                    $text.PadLeft($leftPadding + $text.Length,$style::Horizontal).PadRight($leftPadding + $text.Length + $rightPadding,$style::Horizontal)
-                }
-                'Center'{ 
-                    $totalPadding = $effectiveWidth - $text.Length
-                    $leftPadding = [Math]::Floor($totalPadding / 2)
-                    $rightPadding = [Math]::Ceiling($totalPadding / 2)
-                    $text.PadLeft($leftPadding + $text.Length,$style::Horizontal).PadRight($leftPadding + $text.Length + $rightPadding,$style::Horizontal)
-                }
-                'Right'{
-                    $leftPadding = $effectiveWidth - $text.Length - $style::Horizontal.Length
-                    $rightPadding = $style::Horizontal.Length
-                    $text.PadLeft($leftPadding + $text.Length,$style::Horizontal).PadRight($leftPadding + $text.Length + $rightPadding,$style::Horizontal)
-                }
-            }
-            $top = $style::TopLeft + $text + $style::TopRight
-            return $top
-        }
-        
-
-        #BoxMiddle
-        #--------------------------------------------------------------
-        static [string] BoxMiddle() {return [Draw]::BoxMiddle('', [Defaults]::ConsoleWidth, [Defaults]::LineStyle, [Defaults]::TextAlignment)}
-        static [string] BoxMiddle([string] $text) {return [Draw]::BoxMiddle($text, [Defaults]::ConsoleWidth, [LineStyle]::Heavy, [Defaults]::TextAlignment)}
-        static [string] BoxMiddle([string] $text, [int] $width) {return [Draw]::BoxMiddle($text, $width, [Defaults]::LineStyle, [Defaults]::TextAlignment)}
-        static [string] BoxMiddle([string] $text, [LineStyle] $LineStyle) {return [Draw]::BoxMiddle($text, [Defaults]::ConsoleWidth, $LineStyle, [Defaults]::TextAlignment)}
-        static [string] BoxMiddle([string] $text, [LineStyle] $LineStyle, [TextAlignment] $alignment) {return [Draw]::BoxMiddle($text, [Defaults]::ConsoleWidth, $LineStyle, $alignment)}
-        static [string] BoxMiddle([string] $text, [TextAlignment] $alignment) {return [Draw]::BoxMiddle($text, [Defaults]::ConsoleWidth, [Defaults]::LineStyle, $alignment)}
-        static [string] BoxMiddle([string]$text, [int]$width, [LineStyle]$LineStyle, [TextAlignment]$alignment) {
-            $style = switch ($LineStyle) {
-                'Light' {[BoxLight]}
-                'Heavy' {[BoxHeavy]}
-                'Double'{[BoxDouble]}
-                'Thick'{[BoxThick]}
-            }
-            $effectiveWidth = $width - ($style::Horizontal.Length*2)
-            $text = switch ($alignment) {
-                'Left' {$text.PadRight($effectiveWidth)}
-                'Center'{ 
-                    $totalPadding = $effectiveWidth - $text.Length
-                    $leftPadding = [Math]::Floor($totalPadding / 2)
-                    $rightPadding = [Math]::Ceiling($totalPadding / 2)
-                    $text.PadLeft($leftPadding + $text.Length).PadRight($leftPadding + $text.Length + $rightPadding)
-                }
-                'Right'{$text.PadLeft($effectiveWidth)}
-            }
-            $middle = $style::Vertical + $text + $style::Vertical
-            return $middle
-        }
-        
-
-        #BoxBottom
-        #--------------------------------------------------------------
-        static [string] BoxBottom() {return [Draw]::BoxBottom('', [Defaults]::ConsoleWidth, [Defaults]::LineStyle, [Defaults]::TextAlignment)}
-        static [string] BoxBottom([string] $text) {return [Draw]::BoxBottom($text, [Defaults]::ConsoleWidth, [LineStyle]::Heavy, [Defaults]::TextAlignment)}
-        static [string] BoxBottom([string] $text, [int] $width) {return [Draw]::BoxBottom($text, $width, [Defaults]::LineStyle, [Defaults]::TextAlignment)}
-        static [string] BoxBottom([string] $text, [LineStyle] $LineStyle) {return [Draw]::BoxBottom($text, [Defaults]::ConsoleWidth, $LineStyle, [Defaults]::TextAlignment)}
-        static [string] BoxBottom([string] $text, [string] $LineStyle) {return [Draw]::BoxBottom($text, [Defaults]::ConsoleWidth, $LineStyle, [Defaults]::TextAlignment)}
-        static [string] BoxBottom([string] $text, [LineStyle] $LineStyle, [TextAlignment] $alignment) {return [Draw]::BoxBottom($text, [Defaults]::ConsoleWidth, $LineStyle, $alignment)}
-        static [string] BoxBottom([string] $text, [TextAlignment] $alignment) {return [Draw]::BoxBottom($text, [Defaults]::ConsoleWidth, [Defaults]::LineStyle, $alignment)}
-        static [string] BoxBottom([string]$text, [int]$width, [LineStyle]$LineStyle, [TextAlignment]$alignment) {
-            $style = switch ($LineStyle) {
-                'Light' {[BoxLight]}
-                'Heavy' {[BoxHeavy]}
-                'Double'{[BoxDouble]}
-                'Thick'{[BoxThick]}
-            }
-            $effectiveWidth = $width - ($style::Horizontal.Length*2)
-            $text = switch ($alignment) {
-                'Left' {
-                    $leftPadding = $style::Horizontal.Length
-                    $rightPadding = $effectiveWidth - $text.Length - $style::Horizontal.Length
-                    $text.PadLeft($leftPadding + $text.Length,$style::Horizontal).PadRight($leftPadding + $text.Length + $rightPadding,$style::Horizontal)
-                }
-                'Center'{ 
-                    $totalPadding = $effectiveWidth - $text.Length
-                    $leftPadding = [Math]::Floor($totalPadding / 2)
-                    $rightPadding = [Math]::Ceiling($totalPadding / 2)
-                    $text.PadLeft($leftPadding + $text.Length,$style::Horizontal).PadRight($leftPadding + $text.Length + $rightPadding,$style::Horizontal)
-                }
-                'Right'{
-                    $leftPadding = $effectiveWidth - $text.Length - $style::Horizontal.Length
-                    $rightPadding = $style::Horizontal.Length
-                    $text.PadLeft($leftPadding + $text.Length,$style::Horizontal).PadRight($leftPadding + $text.Length + $rightPadding,$style::Horizontal)
-                }
-            }
-            $bottom = $style::BottomLeft + $text + $style::BottomRight
-            return $bottom
-        }
-        
-
-        #Box
-        #--------------------------------------------------------------
-        static [string] Box() {return [Draw]::Box('', [Defaults]::ConsoleWidth, [Defaults]::LineStyle, [Defaults]::TextAlignment)}
-        static [string] Box([string] $text) {return [Draw]::Box($text, [Defaults]::ConsoleWidth, [LineStyle]::Heavy, [Defaults]::TextAlignment)}
-        static [string] Box([string] $text, [int] $width) {return [Draw]::Box($text, $width, [Defaults]::LineStyle, [Defaults]::TextAlignment)}
-        static [string] Box([string] $text, [LineStyle] $LineStyle) {return [Draw]::Box($text, [Defaults]::ConsoleWidth, $LineStyle, [Defaults]::TextAlignment)}
-        static [string] Box([string] $text, [LineStyle] $LineStyle, [TextAlignment] $alignment) {return [Draw]::Box($text, [Defaults]::ConsoleWidth, $LineStyle, $alignment)}
-        static [string] Box([string] $text, [TextAlignment] $alignment) {return [Draw]::Box($text, [Defaults]::ConsoleWidth, [Defaults]::LineStyle, $alignment)}
-        static [string] Box(
-            [string] $text,
-            [int] $width,
-            [LineStyle] $LineStyle,
-            [TextAlignment] $alignment
-        ) {
-            $width = [math]::Max($width, $text.Length + ($LineStyle::Vertical.Length * 2))
-            $middle = [Draw]::BoxMiddle($text, $width, $LineStyle, $alignment)
-            $top = [Draw]::BoxTop('', $width, $LineStyle, $alignment)
-            $bottom = [Draw]::BoxBottom('', $width, $LineStyle, $alignment)
-            return $top + "`n" + $middle + "`n" + $bottom
-        }
-        
     }
 
     #Encryption class
@@ -860,6 +793,7 @@
         [BinaryOutputType]$ContextIDFormat = [Defaults]::LogContextIDFormat
         [hashtable]$EchoColors = @{'Debug' = 'DarkGray';'Info' = 'Green';'Warn' = 'Yellow';'Error' = 'Red';'Fatal' = 'Magenta'}
         [LogContext]$Context
+        [Box]$Box = [Box]::new()
 
         # Private Properties
         #==================================================================================================================
@@ -1216,10 +1150,8 @@
                 LOG_ECHO_MESSAGES = $this.EchoMessages
                 LOG_ENCODING = $this.encodingName
                 LOG_ROLLOVER_LOGS = $this.RolloverLogs.Count
-                LOG_INSTANTIATION_TIME = $this.InstantiationTime.ToString("yyyy-MM-dd HH:mm:ss.fffffff zzz")
                 LOG_FIELD_SEPARATOR = $this.FS.ToEscapedString()
                 LOG_RECORD_SEPARATOR = $this.RS.ToEscapedString()
-                LOG_CONTEXT_ID = $this.Context.ID
             }).ToString()
         }
 
@@ -1235,9 +1167,15 @@
             $this.Context = [LogContext]::new()
             # Write the context to the log if it's not already there
             if (-not (Select-String -Path $this.LogFile -Pattern ($this.Context.ID) -Quiet)) {
-                $logDetails = "`n$([Draw]::BoxTop(' LOG ', 'Double','Left'))`n$($this.ToString())`n$([Draw]::BoxBottom(' LOG ', 'Double','Right'))"
-                $contextDetails = "`n$([Draw]::BoxTop(' CONTEXT ', 'Double','Left'))`n$($this.Context.ToString())`n$([Draw]::BoxBottom(' CONTEXT ', 'Double','Right'))"
-                $this.Write('Info',"$logDetails`n$contextDetails")
+                $sb = [System.Text.StringBuilder]::new()
+                
+                $logInfo = $this.ToString().AddIndent(4)
+                $sb.Append("`n"+$this.Box.DrawBox(' LOG ',$logInfo, ' LOG '))
+
+                $contextInfo = "CONTEXT_ID: $($this.Context.ID)`n$($this.Context.ToString())".AddIndent(4)
+                $sb.Append($this.Box.DrawBox(' CONTEXT ',$contextInfo, ' CONTEXT '))
+                
+                $this.Write('Info',$sb.ToString())
             }
         }
 
@@ -1645,6 +1583,12 @@
     Update-TypeData -TypeName System.String -MemberType ScriptProperty -MemberName IsHex -Force -Value {
         ($this.Length % 2 -eq 0) -and ($this -match '^[0-9A-Fa-f]+$')
     }
+
+    #LengthOfLongestLine
+    #------------------------------------------------------------------------------------------------------------------
+    Update-TypeData -TypeName System.String -MemberType ScriptProperty -MemberName LengthOfLongestLine -Force -Value {
+        ($this -split "\r?\n" | Measure-Object -Property Length -Maximum).Maximum
+    }
     
 
     #ToBase64
@@ -1663,13 +1607,13 @@
     #ToEscapedString
     #------------------------------------------------------------------------------------------------------------------
     Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName ToEscapedString -Force -Value {
-        if ([string]::IsNullOrWhiteSpace($this)) {return $this}
+        if ([string]::IsNullOrEmpty($this)) {return $this}
         $InputString = $this -replace "`t", '`t' -replace "`r", '`r' -replace "`n", '`n'
         $escapedString = [Text.StringBuilder]::new()
         foreach ($char in $InputString.ToCharArray()) {
             $unicodeCategory = [Char]::GetUnicodeCategory($char)
             switch ($unicodeCategory) {
-               {$_ -in 'Control', 'Surrogate', 'OtherNotAssigned', 'LineSeparator', 'ParagraphSeparator', 'Format'}{
+               {$_ -in 'Control', 'Surrogate', 'OtherNotAssigned', 'LineSeparator', 'ParagraphSeparator', 'Format', 'SpaceSeparator'}{
                     $charCode = [int]$char
                     [void]$escapedString.Append('`u{'+ $charCode.ToString("X4")+ '}')
                 }
@@ -2084,6 +2028,6 @@
     #region
         $log = [Log]::new('CsLog')
         $log.EchoMessages = $false
-        $log.FindInLog('*', '*', [DateTimeOffset]::MinValue, [DateTimeOffset]::MaxValue, '*')  
+        #$log.FindInLog('*', '*', [DateTimeOffset]::MinValue, [DateTimeOffset]::MaxValue, '*')  
     #endregion
 #╚═════════════════════════════════════════════════════════════════════════════════════════════════════════════ Script ═╝
