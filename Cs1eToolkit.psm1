@@ -1,3 +1,4 @@
+
 #╔═ CLASSES ════════════════════════════════════════════════════════════════════════════════════════════════════════════╗
     #region
 
@@ -6,10 +7,11 @@
     enum BinaryOutputType {
         # This enum is used to specify the output format for binary data (hashes, etc.)
         None
-        Hex
-        Base64
-        Base85
-        Base85Alternate
+        Hex #0-9A-F
+        Base62 #0-9A-Za-z
+        Base64 #A-Za-z0-9+/=
+        Base85 #A-Za-z0-9!#$%&()*+-;<=>?@^_`{|}~
+        Base85Alternate #A-Za-z0-9ÀÁÂÃÄÅÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØ
     }
 
     #HashAlgorithm enum
@@ -60,6 +62,70 @@
         Right
     }
 
+    #Base62 class
+    #------------------------------------------------------------------------------------------------------------------
+    class Base62 {
+
+        # these are the default characters for base62 encoding
+        hidden static [char[]]$EncodingCharacters = [char[]]('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz')
+    
+        # Methods
+        # ------------------------------------------------------------------------------------------------------------------
+    
+        # Encode
+        static [string] Encode ([string]$StringToEncode) {
+            return [Base62]::Encode([System.Text.Encoding]::UTF8.GetBytes($StringToEncode))
+        }
+       
+        static [string] Encode([byte[]]$BytesToEncode) {
+            # Ensure the BigInteger is interpreted as positive by appending a 0 byte
+            # If handling of negative values is required, this approach will need adjustment
+            $positiveBytesToEncode = $BytesToEncode + @(0)
+            $number = [System.Numerics.BigInteger]::new($positiveBytesToEncode)
+    
+            # Prepare for encoding
+            $base = [Base62]::EncodingCharacters.Length
+            $encoded = New-Object System.Collections.Generic.List[Object]
+    
+            # Convert to Base62
+            while ($number -gt 0) {
+                $remainder = $number % $base
+                # Correctly performing integer division
+                $number = [System.Numerics.BigInteger]::Divide($number, $base)
+                $encoded.Insert(0, [Base62]::EncodingCharacters[$remainder])
+            }
+    
+            # Return the encoded string
+            return (-join $encoded)
+        }
+    
+        # Decode
+        static [byte[]] Decode([string]$StringToDecode) {
+            $base = [Base62]::EncodingCharacters.Length
+            $number = [System.Numerics.BigInteger]::Zero
+    
+            # Convert from Base62
+            for ($i = 0; $i -lt $StringToDecode.Length; $i++) {
+                $char = $StringToDecode[$i]
+                $value = [Array]::IndexOf([Base62]::EncodingCharacters, $char)
+                if ($value -lt 0) {
+                    throw "Invalid character `'$char`' in Base62 encoded string."
+                }
+                $number += [System.Numerics.BigInteger]::Multiply($value, [System.Numerics.BigInteger]::Pow($base, $StringToDecode.Length - 1 - $i))
+            }
+    
+            # Convert BigInteger to byte array and remove any leading zero bytes added during the encode process
+            $byteArray = $number.ToByteArray()
+            if ($byteArray[-1] -eq 0) {
+                $byteArray = $byteArray[0..($byteArray.Length - 2)]
+            }
+    
+            return $byteArray
+        }
+    
+    }
+    
+
     #Base85 class
     #------------------------------------------------------------------------------------------------------------------
     class Base85 {
@@ -72,13 +138,13 @@
         # ------------------------------------------------------------------------------------------------------------------
 
         # Encode
-        static [string] Encode ([string]$ValueToEncode) {
-            return [Base85]::Encode([System.Text.Encoding]::UTF8.GetBytes($ValueToEncode), [Base85]::EncodingCharacters)
+        static [string] Encode ([string]$StringToEncode) {
+            return [Base85]::Encode([System.Text.Encoding]::UTF8.GetBytes($StringToEncode), [Base85]::EncodingCharacters)
         }
 
-        static [string] Encode ([string]$ValueToEncode, [bool]$UseAlternateCharacters) {
+        static [string] Encode ([string]$StringToEncode, [bool]$UseAlternateCharacters) {
             $currChars = if ($UseAlternateCharacters) { [Base85]::AlternateEncodingCharacters }else { [Base85]::EncodingCharacters }
-            return [Base85]::Encode([System.Text.Encoding]::UTF8.GetBytes($ValueToEncode), [char[]]$currChars)
+            return [Base85]::Encode([System.Text.Encoding]::UTF8.GetBytes($StringToEncode), [char[]]$currChars)
         }
 
         static [string] Encode ([byte[]]$BytesToEncode) {
@@ -156,11 +222,23 @@
 
         # Draw a straight line in the style of the box
         [string] DrawLine() {
-            return $this.HorizontalLine * $this.width
+            return [Box]::FormatTextWithBox($this.Width, '', $this.MiddleAlignment, $this.StyleAttributes.HorizontalLine, $this.StyleAttributes.HorizontalLine, $this.StyleAttributes.HorizontalLine)
+        }
+
+        [string] DrawLine([string]$text) {
+            return [Box]::FormatTextWithBox($this.Width, $text, $this.MiddleAlignment, $this.StyleAttributes.HorizontalLine, $this.StyleAttributes.HorizontalLine, $this.StyleAttributes.HorizontalLine)
+        }
+
+        [string] DrawTop() {
+            return $this.DrawTop('')
         }
         
         [string] DrawTop([string]$text) {
             return [Box]::FormatTextWithBox($this.Width, $text, $this.TopAlignment, $this.StyleAttributes.TopLeft, $this.StyleAttributes.HorizontalTop, $this.StyleAttributes.TopRight)
+        }
+
+        [string] DrawMiddle() {
+            return $this.DrawMiddle('')
         }
     
         [string] DrawMiddle([string]$text) {
@@ -171,12 +249,24 @@
             }
             return $outList -join "`n"
         }
+
+        [string] DrawBottom() {
+            return $this.DrawBottom('')
+        }
     
         [string] DrawBottom([string]$text) {
             return [Box]::FormatTextWithBox($this.Width, $text, $this.BottomAlignment, $this.StyleAttributes.BottomLeft, $this.StyleAttributes.HorizontalBottom, $this.StyleAttributes.BottomRight)
         }
 
         # Static Methods
+        static [Box] ReSerialize([Object]$DeserializedBox) {
+            $box = [Box]::new($DeserializedBox.BoxStyle)
+            $box.Width = $DeserializedBox.Width
+            $box.TopAlignment = $DeserializedBox.TopAlignment
+            $box.MiddleAlignment = $DeserializedBox.MiddleAlignment
+            $box.BottomAlignment = $DeserializedBox.BottomAlignment
+            return $box
+        }
 
         # Hidden Static Methods    
         hidden static [string] FormatTextWithBox([int]$width, [string]$text, [TextAlignment]$alignment, [string]$leftCharacter, [string]$padCharacter, [string]$rightCharacter) {
@@ -271,6 +361,116 @@
         }
     }
 
+    #Auth class (base)
+    #------------------------------------------------------------------------------------------------------------------
+    class Auth {
+        [string]$Server
+
+        Auth() {
+            $this.Server = (Read-Host -Prompt 'Enter the 1E Platform server name')
+        }
+
+        Auth([string]$server) {
+            $this.Server = $server
+        }
+
+        [bool] Authenticate() {
+            Set-1EServer -Server $this.Server
+            return $this.TestConnection()
+        }
+
+        static [Auth] ReSerialize([Object]$DeserializedAuth) {
+            if ($DeserializedAuth.PSObject.Properties.Name -contains 'Credential') {
+                return [BasicAuth]::new($DeserializedAuth.Server, $DeserializedAuth.Credential)
+            } elseif ($DeserializedAuth.PSObject.Properties.Name -contains 'CertSubject') {
+                return [CertSubjectAuth]::new($DeserializedAuth.Server, $DeserializedAuth.AppId, $DeserializedAuth.CertSubject, $DeserializedAuth.Principal)
+            } else {
+                return [Auth]::new($DeserializedAuth.Server)
+            }
+        }
+
+        [bool] TestConnection() {
+            try {
+                # try to execute something benign to see if we are connected to the 1E Server
+                [void](Get-1ESystemStatistics -ErrorAction Stop -WarningAction Stop)
+                # and if this auth server is the one we are connected to
+                return ($this.Server -ieq (Get-1EServer))
+            }
+            catch {return $false}
+        }
+
+        [string] ToString() {
+            return "AuthClass: $($this.GetType().FullName)`nServer: $($this.Server)"
+        }
+    }
+
+    #BasicAuth class (inherits Auth)
+    #------------------------------------------------------------------------------------------------------------------
+    class BasicAuth : Auth {
+        # This class is used to authenticate to the 1E Platform using basic authentication (username and password)
+
+        #[string]$Server #Inherited from AuthSettings
+        [pscredential]$Credential
+
+        BasicAuth() {
+            $this.Server = (Read-Host -Prompt 'Enter the 1E Platform server name')
+            $this.Credential = Get-Credential -Title "1E Platform Credentials" -Message "Enter credentials to connect to $($this.Server)"
+        }
+
+        BasicAuth([string]$server) {
+            $this.Server = $server
+            $this.Credential = Get-Credential -Title "Platform Credentials" -Message "Enter credentials to connect to $server"
+        }
+
+        BasicAuth([string]$server, [pscredential]$credential) {
+            $this.Server = $server
+            $this.Credential = $credential
+        }
+
+        [bool] Authenticate() {
+            Set-1EServer -Server $this.Server -UseBasicAuth -Credential $this.Credential
+            return $this.TestConnection()
+        }
+
+
+    }
+
+    #CertSubjectAuth class (inherits Auth)
+    #------------------------------------------------------------------------------------------------------------------
+    class CertSubjectAuth : Auth {
+        # This class is used to authenticate to the 1E Platform using a certificate subject and azure app id
+
+        #[string]$Server #Inherited from AuthSettings
+        [string]$Server = '1eplatform.dex.local'
+        [string]$AppId = 'ec8ba764-7dcd-43b9-a0c2-fe8c289d0e80'
+        [string]$CertSubject = 'CN=1EIntegration'
+        [string]$Principal = 'install@dexcodeone.onmicrosoft.com'
+
+        CertSubjectAuth() {
+            $this.Server = (Read-Host -Prompt 'Enter the 1E Platform server name')
+            $this.AppId = (Read-Host -Prompt 'Enter the Azure App ID')
+            $this.CertSubject = (Read-Host -Prompt 'Enter the certificate subject')
+            $this.Principal = (Read-Host -Prompt 'Enter the Azure principal who maps to a platform user')
+        }
+
+        CertSubjectAuth([string]$server, [string]$appId, [string]$certSubject, [string]$principal) {
+            $this.Server = $server
+            $this.AppId = $appId
+            $this.CertSubject = $certSubject
+            $this.Principal = $principal
+        }
+
+        [bool] Authenticate() {
+            Set-1EServer -Server $this.Server -AppId $this.AppId -CertSubject $this.CertSubject -Principal $this.Principal
+            return $this.TestConnection()
+        }
+    }
+
+    #UnattendedAuth class (inherits CertSubjectAuth)
+    #------------------------------------------------------------------------------------------------------------------
+    class UnattendedAuth : CertSubjectAuth {
+    }
+
     #Defaults class
     #------------------------------------------------------------------------------------------------------------------
     class Defaults {
@@ -285,23 +485,24 @@
         static [int] $Indent = 4
         static [int] $BoxWidth = 120
         static [BoxStyle] $BoxStyle = [BoxStyle]::DoubleNoSides
-        static [TextAlignment] $BoxTopAlignment = [TextAlignment]::Left
+        static [TextAlignment] $BoxTopAlignment = [TextAlignment]::Center
         static [TextAlignment] $BoxMiddleAlignment = [TextAlignment]::Left
-        static [TextAlignment] $BoxBottomAlignment = [TextAlignment]::Right
+        static [TextAlignment] $BoxBottomAlignment = [TextAlignment]::Center
         static [Box]$Box = [Box]::new()
         static [HashAlgorithm] $HashAlgorithm = 'MD5'
         static [BinaryOutputType] $BinaryOutputType = 'Base64'
         static [int] $EncryptionKeySize = 256
         static [int] $EncryptionIVSize = 128
         static [int] $EncryptionIterations = 100000
-        static [System.IO.FileInfo]$LogDirectory = [System.IO.Path]::Combine($env:TEMP, '1E\Logs')
+        static [System.IO.FileInfo]$LogDirectory = [System.IO.Path]::Combine($env:LOCALAPPDATA, '1E\Logs')
         static [System.IO.FileInfo]$LogFallbackDirectory = $env:TEMP
         static [string]$LogPrefix = '1e.CustomerSuccess.'
         static [string]$LogNamePattern = 'yyyyMMdd_HHmmss_fffffff'
         static [string]$LogExtension = '.log'
         static [int]$LogTailLines = 40
-        static [HashAlgorithm]$LogContextIDAlgorithm = 'MD5'
-        static [BinaryOutputType]$LogContextIDFormat = 'Base85Alternate'
+        static [HashAlgorithm]$ContextIDAlgorithm = 'MD5'
+        static [BinaryOutputType]$ContextIDFormat = 'Base62'
+        static [System.IO.DirectoryInfo]$MigrationRoot = [System.IO.Path]::Combine($env:LOCALAPPDATA, '1E\Migration')
         static [hashtable]$EchoColors = @{
             'Debug' = 'DarkGray'
             'Info' = 'Green'
@@ -320,6 +521,11 @@
                 "utf-8" = 'UTF8'
             }
             return $null -ne $encodingMap[([System.Text.Encoding]::UTF8.WebName)] ? $encodingMap[([System.Text.Encoding]::UTF8.WebName)] : 'UTF8'
+        }
+
+        # Constructor
+        Defaults() {
+            throw 'This class is static and cannot be instantiated.'
         }
     }
 
@@ -363,6 +569,581 @@
                 'DEVICE_SERIAL_NUMBER' = $this.SerialNumber
             }).ToString()
         }
+    }
+
+    #Instance class
+    #------------------------------------------------------------------------------------------------------------------
+    class Instance {
+        [string]$Name
+        [Auth]$Authenticator
+        [Log]$Log
+        [System.Collections.Generic.List[System.Object]]$Instructions = @()
+        [System.Collections.Generic.List[System.Object]]$InstructionSets = @()
+        [System.Collections.Generic.List[System.Object]]$ManagementGroups = @()
+        [System.Collections.Generic.List[System.Object]]$Policies = @()
+        [System.Collections.Generic.List[System.Object]]$Rules = @()
+        [System.Collections.Generic.List[System.Object]]$TriggerTemplates = @()
+        [System.Collections.Generic.List[System.Object]]$Fragments = @()
+        [System.DateTimeOffset]$CachedTimeUtc
+        
+
+        #Constructors
+        #------------------------------------------------------------------------------------------------------------------
+        Instance() {
+            $this.Authenticator = [Auth]::new() # interactively connect to the 1E Platform
+            $this.Name = $this.Authenticator.Server
+            $this.Log = [Log]::new("Instance_$($this.Authenticator.Server).log",$true)
+        }
+
+        Instance([Log]$Log) {
+            $this.Authenticator = [Auth]::new() # interactively connect to the 1E Platform
+            $this.Name = $this.Authenticator.Server
+            $this.Log = $Log # use specified log
+        }
+
+        Instance([Auth]$Authenticator) {
+            $this.Authenticator = $Authenticator # use specified authenticator
+            $this.Name = $Authenticator.Server
+            $this.Log = [Log]::new("Instance_$($this.Authenticator.Server).log",$true)
+        }
+
+        Instance([String]$Name, [String]$Server) {
+            $this.Authenticator = [Auth]::new($Server) # use specified server
+            $this.Name = $Name ?? $Server
+            $this.Log = [Log]::new("Instance_$($this.Authenticator.Server).log",$true)
+        }
+
+        Instance([Auth]$Authenticator, [Log]$Log) {
+            $this.Authenticator = $Authenticator # use specified authenticator
+            $this.Name = $Authenticator.Server
+            $this.Log = $Log # use specified log
+        }
+
+        Instance([String]$Name,
+                [Auth]$Authenticator,
+                [Log]$Log,
+                [System.Collections.Generic.List[System.Object]]$Instructions,
+                [System.Collections.Generic.List[System.Object]]$InstructionSets,
+                [System.Collections.Generic.List[System.Object]]$ManagementGroups,
+                [System.Collections.Generic.List[System.Object]]$Policies,
+                [System.Collections.Generic.List[System.Object]]$Rules,
+                [System.Collections.Generic.List[System.Object]]$TriggerTemplates,
+                [System.Collections.Generic.List[System.Object]]$Fragments,
+                [System.DateTimeOffset]$CachedTimeUtc) {
+            $this.Name = $Name
+            $this.Authenticator = $Authenticator
+            $this.Log = $Log
+            $this.Instructions = $Instructions
+            $this.InstructionSets = $InstructionSets
+            $this.ManagementGroups = $ManagementGroups
+            $this.Policies = $Policies
+            $this.Rules = $Rules
+            $this.TriggerTemplates = $TriggerTemplates
+            $this.Fragments = $Fragments
+            $this.CachedTimeUtc = $CachedTimeUtc
+        }
+
+        Instance([PSCustomObject]$DeserializedObject) {
+            $this.Name = [string]$DeserializedObject.Name
+            $this.Authenticator = [Auth]::new($DeserializedObject.Authenticator)
+            $this.Log = [Log]::new($DeserializedObject.Log)
+            $this.Instructions = [System.Collections.Generic.List[System.Object]]$DeserializedObject.Instructions
+            $this.InstructionSets = [System.Collections.Generic.List[System.Object]]$DeserializedObject.InstructionSets
+            $this.ManagementGroups = [System.Collections.Generic.List[System.Object]]$DeserializedObject.ManagementGroups
+            $this.Policies = [System.Collections.Generic.List[System.Object]]$DeserializedObject.Policies
+            $this.Rules = [System.Collections.Generic.List[System.Object]]$DeserializedObject.Rules
+            $this.TriggerTemplates = [System.Collections.Generic.List[System.Object]]$DeserializedObject.TriggerTemplates
+            $this.Fragments = [System.Collections.Generic.List[System.Object]]$DeserializedObject.Fragments
+            $this.CachedTimeUtc = [System.DateTimeOffset]::new($DeserializedObject.CachedTimeUtc.UtcTicks,0)
+        }
+
+        #Methods
+        #------------------------------------------------------------------------------------------------------------------
+
+        # Connect
+        [void] Connect() {
+            $this.Log.Info("INSTANCE_CONNECT: Connecting to $($this.Authenticator.Server)")
+            $this.Authenticator.Authenticate()
+        }
+
+        # IsConnected
+        [bool] IsConnected() {
+            return $this.Authenticator.TestConnection()
+        }
+
+        # CacheInstructions
+        [void] CacheInstructions() {
+            $this.Log.Info("INSTRUCTION_CACHE: Getting instructions from server")
+            try {
+                $this.Instructions = Get-1EInstruction -ErrorAction Stop
+            }
+            catch {
+                if (-not $this.IsConnected()) {$this.Connect()}
+                $this.Instructions = Get-1EInstruction
+            }
+            $this.Log.Info("INSTRUCTION_CACHE: $($this.Instructions.Count) instructions cached")
+        }
+
+        # CacheInstructionSets
+        [void] CacheInstructionSets() {
+            $this.Log.Info("INSTRUCTION_SET_CACHE: Getting instruction sets from server")
+            try {
+                $this.InstructionSets = Get-1EInstructionSet -ErrorAction Stop
+            }
+            catch {
+                if (-not $this.IsConnected()) {$this.Connect()}
+                $this.InstructionSets = Get-1EInstructionSet
+            }
+            $this.Log.Info("INSTRUCTION_SET_CACHE: $($this.InstructionSets.Count) instruction sets cached")
+        }
+
+        # CacheManagementGroups
+        [void] CacheManagementGroups() {
+            $this.Log.Info("MANAGEMENT_GROUP_CACHE: Getting management groups from server")
+            try {
+                $this.ManagementGroups = Get-1ESLAManagementGroup -IncludeRules -ErrorAction Stop
+            }
+            catch {
+                if (-not $this.IsConnected()) {$this.Connect()}
+                $this.ManagementGroups = Get-1ESLAManagementGroup -IncludeRules                    
+            }
+            $this.Log.Info("MANAGEMENT_GROUP_CACHE: $($this.ManagementGroups.Count) management groups cached")
+        }
+
+        # CachePolicies
+        [void] CachePolicies() {
+            $this.Log.Info("POLICY_CACHE: Getting policies from server")
+            try {
+                $this.Policies = Get-1EAllPolicy -ErrorAction Stop
+            }
+            catch {
+                if (-not $this.IsConnected()) {$this.Connect()}
+                $this.Policies = Get-1EAllPolicy
+            }
+            $this.Log.Info("POLICY_CACHE: $($this.Policies.Count) policies cached")
+        }
+
+        # CacheRules
+        [void] CacheRules() {
+            $this.Log.Info("RULE_CACHE: Getting rules from server")
+            try {
+                $this.Rules = Get-1EAllRule -ErrorAction Stop
+            }
+            catch {
+                if (-not $this.IsConnected()) {$this.Connect()}
+                $this.Rules = Get-1EAllRule
+            }
+            $this.Log.Info("RULE_CACHE: $($this.Rules.Count) rules cached")
+        }
+
+        # CacheTriggerTemplates
+        [void] CacheTriggerTemplates() {
+            $this.Log.Info("TRIGGER_TEMPLATE_CACHE: Getting trigger templates from server")
+            try {
+                $this.TriggerTemplates = Get-1EAllTriggerTemplate -ErrorAction Stop
+            }
+            catch {
+                if (-not $this.IsConnected()) {$this.Connect()}
+                $this.TriggerTemplates = Get-1EAllTriggerTemplate
+            }
+            $this.Log.Info("TRIGGER_TEMPLATE_CACHE: $($this.TriggerTemplates.Count) trigger templates cached")
+        }
+
+        # CacheFragments
+        [void] CacheFragments() {
+            $this.Log.Info("FRAGMENT_CACHE: Getting fragments from server")
+            try {
+                $this.Fragments = Get-1EAllFragment -ErrorAction Stop
+            }
+            catch {
+                if (-not $this.IsConnected()) {$this.Connect()}
+                $this.Fragments = Get-1EAllFragment
+            }
+            $this.Log.Info("FRAGMENT_CACHE: $($this.Fragments.Count) fragments cached")
+        }
+
+        # CacheAllObjects
+        [void] CacheAllObjects() {
+            $this.Log.Info("Retrieving all objects from server and caching them locally")
+            $this.CacheInstructions()
+            $this.CacheInstructionSets()
+            $this.CacheManagementGroups()
+            $this.CachePolicies()
+            $this.CacheRules()
+            $this.CacheTriggerTemplates()
+            $this.CacheFragments()
+            $this.CachedTimeUtc = [System.DatetimeOffset]::Now
+            $this.Log.Info("All server objects cached")
+        }
+
+        [void] ClearCache() {
+            $this.Log.Info("Clearing all cached objects")
+            $this.Instructions = @()
+            $this.InstructionSets = @()
+            $this.ManagementGroups = @()
+            $this.Policies = @()
+            $this.Rules = @()
+            $this.TriggerTemplates = @()
+            $this.Fragments = @()
+            $this.CachedTimeUtc = $null
+        }
+
+        # ToString
+        [string] ToString() {
+            return ([ordered]@{
+                Name = $this.Name
+                Server = $this.Authenticator.Server
+            }).ToString()
+        }
+    }
+
+    #Migration class
+    #------------------------------------------------------------------------------------------------------------------
+    class Migration {
+        [string]$Id = [DateTime]::UtcNow.ToString("yyyyMMddHHmmssfffffff")
+        [System.IO.DirectoryInfo]$MigrationDirectory = [System.IO.DirectoryInfo]::new("$([Defaults]::MigrationRoot)\$($this.Id)")
+        [System.IO.FileInfo]$ExportFile = [System.IO.FileInfo]::new((Join-Path $this.MigrationDirectory.FullName 'Export.xml'))
+        [Log]$Log = [Log]::new('Migration',$true)
+        [Instance[]]$Instances
+        [Instance]$ExportInstance
+        [Instance]$ImportInstance
+        [string[]]$TypesToExport
+        [System.Collections.Generic.List[System.Object]]$InstructionSetsToMigrate = @()
+        [System.Collections.Generic.List[System.Object]]$InstructionsToMigrate = @()
+        [System.Collections.Generic.List[System.Object]]$ManagementGroupsToMigrate = @()
+        [System.Collections.Generic.List[System.Object]]$PoliciesToMigrate = @()
+        [System.Collections.Generic.List[System.Object]]$RulesToMigrate = @()
+        [System.Collections.Generic.List[System.Object]]$TriggerTemplatesToMigrate = @()
+        [System.Collections.Generic.List[System.Object]]$FragmentsToMigrate = @()
+
+        hidden [string[]]$ObjectTypes = @('InstructionSets', 'Instructions', 'ManagementGroups', 'Policies', 'Rules', 'TriggerTemplates', 'Fragments')
+        
+
+        #Constructors
+        #------------------------------------------------------------------------------------------------------------------
+        Migration() {
+            throw "You must provide at least one instance to migrate"
+        }
+
+        Migration([PSCustomObject]$DeserializedObject) {            
+            $this.Id = [string]$DeserializedObject.Id
+            $this.MigrationDirectory = [System.IO.DirectoryInfo]::new($DeserializedObject.MigrationDirectory)
+            $this.ExportFile = [System.IO.FileInfo]::new($DeserializedObject.ExportFile)
+            $this.Log = [Log]::new([PSCustomObject]$DeserializedObject.Log)
+            $this.Instances = ($DeserializedObject.Instances | ForEach-Object {[Instance]::new([PSCustomObject]$_)})
+            $this.ExportInstance = [Instance]::new([PSCustomObject]$DeserializedObject.ExportInstance)
+            $this.ImportInstance = [Instance]::new([PSCustomObject]$DeserializedObject.ImportInstance)
+            $this.TypesToExport = [string[]]$DeserializedObject.TypesToExport
+            $this.InstructionSetsToMigrate = $DeserializedObject.InstructionSetsToMigrate
+            $this.InstructionsToMigrate = $DeserializedObject.InstructionsToMigrate
+            $this.ManagementGroupsToMigrate = $DeserializedObject.ManagementGroupsToMigrate
+            $this.PoliciesToMigrate = $DeserializedObject.PoliciesToMigrate
+            $this.RulesToMigrate = $DeserializedObject.RulesToMigrate
+            $this.TriggerTemplatesToMigrate = $DeserializedObject.TriggerTemplatesToMigrate
+            $this.FragmentsToMigrate = $DeserializedObject.FragmentsToMigrate
+        }        
+        
+        Migration([Instance[]]$Instances) {
+            $this.Instances = $Instances
+            $this.MigrationDirectory = [Directory]::Create($this.MigrationDirectory.FullName)
+        }
+
+        Migration([System.IO.FileInfo]$ExportFile) {
+            # Check if export file exists
+            if (-not $ExportFile.Exists) {
+                $this.Stop("Error","EXPORT_FILE_NOT_FOUND: The export file '$($ExportFile.FullName)' does not exist. Exiting")
+            }
+            $this.ExportFile = $ExportFile
+            $this.MigrationDirectory = [Directory]::Create($this.ExportFile.Directory)
+        }
+
+        Migration(
+            [string]$Id,
+            [System.IO.DirectoryInfo]$MigrationDirectory,
+            [System.IO.FileInfo]$ExportFile,
+            [Log]$Log,
+            [Instance[]]$Instances,
+            [Instance]$ExportInstance,
+            [Instance]$ImportInstance,
+            [string[]]$TypesToExport,
+            [System.Collections.Generic.List[System.Object]]$InstructionSetsToMigrate,
+            [System.Collections.Generic.List[System.Object]]$InstructionsToMigrate,
+            [System.Collections.Generic.List[System.Object]]$ManagementGroupsToMigrate,
+            [System.Collections.Generic.List[System.Object]]$PoliciesToMigrate,
+            [System.Collections.Generic.List[System.Object]]$RulesToMigrate,
+            [System.Collections.Generic.List[System.Object]]$TriggerTemplatesToMigrate,
+            [System.Collections.Generic.List[System.Object]]$FragmentsToMigrate
+        ) {
+            $this.Id = $Id
+            $this.MigrationDirectory = $MigrationDirectory
+            $this.ExportFile = $ExportFile
+            $this.Log = $Log
+            $this.Instances = $Instances
+            $this.ExportInstance = $ExportInstance
+            $this.ImportInstance = $ImportInstance
+            $this.TypesToExport = $TypesToExport
+            $this.InstructionSetsToMigrate = $InstructionSetsToMigrate
+            $this.InstructionsToMigrate = $InstructionsToMigrate
+            $this.ManagementGroupsToMigrate = $ManagementGroupsToMigrate
+            $this.PoliciesToMigrate = $PoliciesToMigrate
+            $this.RulesToMigrate = $RulesToMigrate
+            $this.TriggerTemplatesToMigrate = $TriggerTemplatesToMigrate
+            $this.FragmentsToMigrate = $FragmentsToMigrate
+        }
+
+
+        #Methods
+        #------------------------------------------------------------------------------------------------------------------
+        [void] Clear() {
+            $this.Log.Info("Clearing all cached objects")
+            $this.ExportInstance = $null
+            $this.ImportInstance = $null
+            $this.TypesToExport = @()
+            $this.InstructionSetsToMigrate = @()
+            $this.InstructionsToMigrate = @()
+            $this.ManagementGroupsToMigrate = @()
+            $this.PoliciesToMigrate = @()
+            $this.RulesToMigrate = @()
+            $this.TriggerTemplatesToMigrate = @()
+            $this.FragmentsToMigrate = @()
+        }
+
+        [Void] Export () {
+            $this.Log.WriteTopLine('Info'," OBJECT_EXPORT_BEGIN ")
+            
+            #Choose instance from which we'll export
+            $this.Log.Info("USER_PROMPT: Prompting for the export instance")
+            $choice = $this.Instances | Select-Object Name, @{Name='Server'; Expression={$_.Authenticator.Server}}| Out-GridView -Title "Select the Export instance" -OutputMode Single
+            if (-not $choice) {
+                $this.Stop("Error","NO_EXPORT_INSTANCE_SELECTED: No export instance was selected or the user cancelled. Exiting")
+            } else {
+                $this.ExportInstance = $this.Instances | Where-Object {$_.Name -eq $choice.Name} | Select-Object -First 1
+                $this.Log.Info("EXPORT_INSTANCE_SELECTED: $($this.ExportInstance.Name) selected")
+            }
+
+            #Connect to the export instance and have it cache all objects to the class
+            $this.Log.Info("EXPORT_CONNECT: Connecting to $($this.ExportInstance.Name) and caching all objects")
+            if (-not $this.ExportInstance.IsConnected()) {$this.ExportInstance.Connect()}
+            $this.ExportInstance.CacheAllObjects()
+
+            #Choose the types of objects to export.
+            $this.TypesToExport = $this.ObjectTypes | Out-GridView -Title "Select the object types to export" -OutputMode Multiple
+            if ($this.TypesToExport.Count -eq 0) {
+                $this.Stop("Error","NO_OBJECT_TYPES_SELECTED: No object types were selected to export or the user cancelled. Exiting")
+            }
+
+            #Choose the InstructionSets
+            if ($this.TypesToExport -contains 'InstructionSets') {
+                $this.Log.Info("USER_PROMPT: Prompting for the instruction sets to export")
+                $this.InstructionSetsToMigrate = $this.ExportInstance.InstructionSets | Out-GridView -Title "Select the Instruction Sets to export" -OutputMode Multiple
+                if ($this.InstructionSetsToMigrate.Count -eq 0) {
+                    $this.Stop('Error',"NO_INSTRUCTION_SETS_SELECTED: No instruction sets were selected to export or the user cancelled. Exiting")
+                }
+            }
+
+            #Choose the Instructions
+            if ($this.TypesToExport -contains 'Instructions') {
+                $this.Log.Info("USER_PROMPT: Prompting for the instructions to export")
+                $this.InstructionsToMigrate = $this.ExportInstance.Instructions | Out-GridView -Title "Select the Instructions to export" -OutputMode Multiple
+                if ($this.InstructionsToMigrate.Count -eq 0) {
+                    $this.Stop('Error',"NO_INSTRUCTIONS_SELECTED: No instructions were selected to export or the user cancelled. Exiting")
+                }
+                #For any instructions to migrate, also get the actual XML content from the server (via .ZIP for now)
+                $this.Log.Info("INSTRUCTION_CONTENT: Getting instruction content from server")
+                if ($this.InstructionsToMigrate.Count -gt 0) {
+                    $this.InstructionsToMigrate | ForEach-Object {
+                        $currName = $_.Name
+                        $this.Log.Info("INSTRUCTION_XML_RETRIEVAL: Getting XML content for instruction: $currName")
+                        $currZip = Join-Path $env:temp "$currName.zip"
+                        $currUnzipPath = Join-Path $env:temp $currName
+                        try {
+                            Export-1EInstruction -Name $currName -File $currZip # get zip from server
+                            $currXmlfile = Expand-Archive -Path $currZip -DestinationPath $currUnzipPath -Force -PassThru | Select-Object -First 1 # unzip it to get at it's XML contents (first 1 in case there are multiple files in the zip, which shouldn't happen)
+                            Remove-Item -Path $currZip -Force -ErrorAction SilentlyContinue # remove the zip file
+                            $_ | Add-Member -MemberType NoteProperty -Name 'XmlContent' -Value ([string](Get-Content -Path $currXmlFile.FullName -Encoding UTF8)) -PassThru # add the content of the XML as a new property of the current instruction object in the pipeline
+                            [Directory]::Remove($currUnzipPath, $true) # remove the unzip folder and everything in it quietly
+                        } catch {
+                            $this.Log.Error("INSTRUCTION_XML_RETRIEVAL_ERROR: $($_.Exception.Message)")
+                        }
+                    }
+                    #Also get any instruction sets that are associated with the instructions chosen
+                    $this.Log.Info("INSTRUCTION_SETS: Getting additional instruction sets associated with the selected instructions (if any)")
+                    if ($this.InstructionsToMigrate.Count -gt 0) {
+                        $this.InstructionsToMigrate.InstructionSetName | # get the instruction set names from the instructions
+                            Where-Object {$_ -notin $this.InstructionSetsToMigrate.Name} | # filter out any instruction sets that are already in the export list
+                                ForEach-Object { # for each instruction set name
+                                    $currName = $_
+                                    $this.InstructionSetsToMigrate.Add($this.ExportInstance.InstructionSets.Where({$_.Name -eq $currName},'First')) # add the instruction set to the export list
+                                }
+                    }
+                }
+            }
+
+            #Choose the ManagementGroups
+            if ($this.TypesToExport -contains 'ManagementGroups') {
+                $this.Log.Info("USER_PROMPT: Prompting for the management groups to export")
+                $this.ManagementGroupsToMigrate = $this.ExportInstance.ManagementGroups | Out-GridView -Title "Select the Management Groups to export" -OutputMode Multiple
+                if ($this.ManagementGroupsToMigrate.Count -eq 0) {
+                    $this.Stop('Error',"NO_MANAGEMENT_GROUPS_SELECTED: No management groups were selected to export or the user cancelled. Exiting")
+                }
+            }
+
+            #Choose the Policies
+            if ($this.TypesToExport -contains 'Policies') {
+                $this.Log.Info("USER_PROMPT: Prompting for the policies to export")
+                $this.PoliciesToMigrate = $this.ExportInstance.Policies | Out-GridView -Title "Select the Policies to export" -OutputMode Multiple
+                if ($this.PoliciesToMigrate.Count -eq 0) {
+                    $this.Stop('Error',"NO_POLICIES_SELECTED: No policies were selected to export or the user cancelled. Exiting")
+                }
+            }
+
+            #Choose the Rules
+            if ($this.TypesToExport -contains 'Rules') {
+                $this.Log.Info("USER_PROMPT: Prompting for the rules to export")
+                $this.RulesToMigrate = $this.ExportInstance.Rules | Out-GridView -Title "Select the Rules to export" -OutputMode Multiple
+                if ($this.RulesToMigrate.Count -eq 0) {
+                    $this.Stop('Error',"NO_RULES_SELECTED: No rules were selected to export or the user cancelled. Exiting")
+                }
+            }
+
+            #Choose the TriggerTemplates
+            if ($this.TypesToExport -contains 'TriggerTemplates') {
+                $this.Log.Info("USER_PROMPT: Prompting for the trigger templates to export")
+                $this.TriggerTemplatesToMigrate = $this.ExportInstance.TriggerTemplates | Out-GridView -Title "Select the Trigger Templates to export" -OutputMode Multiple
+                if ($this.TriggerTemplatesToMigrate.Count -eq 0) {
+                    $this.Stop('Error',"NO_TRIGGER_TEMPLATES_SELECTED: No trigger templates were selected to export or the user cancelled. Exiting")
+                }
+            }
+
+            #Choose the Fragments
+            if ($this.TypesToExport -contains 'Fragments') {
+                $this.Log.Info("USER_PROMPT: Prompting for the fragments to export")
+                $this.FragmentsToMigrate = $this.ExportInstance.Fragments | Out-GridView -Title "Select the Fragments to export" -OutputMode Multiple
+                if ($this.FragmentsToMigrate.Count -eq 0) {
+                    $this.Stop('Error',"NO_FRAGMENTS_SELECTED: No fragments were selected to export or the user cancelled. Exiting")
+                }
+                #For any fragments to migrate, also get the actual XML content from the server 
+                $this.Log.Info("FRAGMENT_CONTENT: Getting fragment content from server")
+                if ($this.FragmentsToMigrate.Count -gt 0) {
+                    $this.FragmentsToMigrate | ForEach-Object {
+                        $currName = $_.Name
+                        $this.Log.Info("FRAGMENT_XML_RETRIEVAL: Getting XML content for fragment: $currName")
+                        $currXmlFile = Join-Path $env:temp "$currName.xml"
+                        try {
+                            Export-1EFragment -Name $currName -File $currXmlFile
+                            $_ | Add-Member -MemberType NoteProperty -Name 'XmlContent' -Value ([string](Get-Content -Path $currXmlFile -Encoding UTF8)) -PassThru # add the content of the XML as a new property of the current fragment object in the pipeline
+                            Remove-Item -Path $currXmlFile -Force -ErrorAction SilentlyContinue | Out-Null # remove the file
+                            [Directory]::Remove($currUnzipPath, $true) # remove the unzip folder and everything in it quietly
+                        } catch {
+                            $this.Log.Error("FRAGMENT_XML_RETRIEVAL_ERROR: $($_.Exception.Message)")
+                        }
+                    }
+                }
+            }
+
+            #Save the export file
+            $this.Save()
+            $this.Log.WriteBottomLine('Info'," OBJECT_EXPORT_END ")
+        }
+
+        [void] Import() {
+            $this.Log.WriteTopLine('Info'," OBJECT_IMPORT_BEGIN ")
+            $this.Log.Info("USER_PROMPT: Prompting for the import instance")
+            $choice = $this.Instances | Select-Object Name, @{Name='Server'; Expression={$_.Authenticator.Server}}| Out-GridView -Title "Select the destination (import) instance" -OutputMode Single
+            if (-not $choice) {
+                $this.Stop("Error","NO_IMPORT_INSTANCE_SELECTED: No import instance was selected or the user cancelled. Exiting")
+            } else {
+                $this.ImportInstance = $this.Instances | Where-Object {$_.Name -eq $choice.Name} | Select-Object -First 1
+                $this.Log.Info("IMPORT_INSTANCE_SELECTED: $($this.ImportInstance.Name) selected")
+            }
+
+            $this.Log.Info("IMPORT_CONNECT: Connecting to $($this.ImportInstance.Name)")
+            if (-not $this.ImportInstance.IsConnected()) {$this.ImportInstance.Connect()}
+            $this.ImportInstance.CacheAllObjects()
+
+            $this.Log.Info("READING_EXPORT_FILE: Reading export file $($this.ExportFile.FullName)")
+            $export = [Migration]::new((Import-Clixml -Path $this.ExportFile.FullName))
+
+        }
+
+        [void] OpenExplorer() {
+            Start-Process -FilePath "explorer.exe" -ArgumentList "/select, `"$($this.ExportFile.FullName)`""
+        }
+
+        [void] RemoveOldExports([int]$ExportsToKeep) {
+            $this.Log.Info("REMOVING_OLD_EXPORTS")
+            $oldExports = [System.IO.DirectoryInfo]::new("$env:LOCALAPPDATA\1E\Migration").GetDirectories() | Sort-Object -Property Name -Descending | Select-Object -Skip $ExportsToKeep
+            $oldExports | ForEach-Object {
+                $this.Log.Info("REMOVING_OLD_EXPORT: $($_.Name)")
+                [Directory]::Remove($_.FullName, $true)
+            }
+            $this.Log.Info("OLD_EXPORTS_REMOVED")
+        }
+
+        [void] Save() {
+            $this.Log.Info("EXPORT_SAVE: Saving export to $($this.ExportFile.FullName)")
+            [ordered]@{
+                Id = $this.Id
+                MigrationDirectory = $this.MigrationDirectory.FullName
+                ExportFile = $this.ExportFile.FullName
+                Log = $this.Log
+                Instances = $this.Instances
+                ExportInstance = $this.ExportInstance
+                ImportInstance = $this.ImportInstance
+                TypesToExport = $this.TypesToExport
+                InstructionSetsToMigrate = $this.InstructionSetsToMigrate
+                InstructionsToMigrate = $this.InstructionsToMigrate
+                ManagementGroupsToMigrate = $this.ManagementGroupsToMigrate
+                PoliciesToMigrate = $this.PoliciesToMigrate
+                RulesToMigrate = $this.RulesToMigrate
+                TriggerTemplatesToMigrate = $this.TriggerTemplatesToMigrate
+                FragmentsToMigrate = $this.FragmentsToMigrate
+            } | Export-Clixml -Path $this.ExportFile.FullName -Force -Encoding UTF8
+        }
+
+        [void] Stop() {
+            $this.Log.WriteBottomLine('Info','')
+        }
+
+        [void] Stop([LogLevel]$Level, [string]$Message) {
+            $this.Log.Write($Level, $Message)
+            $this.Log.WriteBottomLine('Info','')
+            if ($Level -in 'Fatal','Error') {exit 1}
+        }
+
+    }
+
+    #Directory class
+    #------------------------------------------------------------------------------------------------------------------
+    class Directory {
+        Directory() {
+            throw 'This class is static and cannot be instantiated.'
+        }
+
+        # New (or get existing) directory
+        static [System.IO.DirectoryInfo] Create([string]$path) {
+            $directory = [System.IO.DirectoryInfo]::new($path)
+            if (-not $directory.Exists) {$directory.Create()}
+            return $directory
+        }
+
+        # Remove the directory
+        static [void] Remove([string]$path, [bool]$recursive) {
+            try {
+                $directory = [System.IO.DirectoryInfo]::new($path)
+                if ($directory.Exists) {$directory.Delete($recursive)}
+            } catch {}
+        }
+
+        # Get the directory size
+        static [long] GetSize([string]$path) {
+            $directory = [System.IO.DirectoryInfo]::new($path)
+            if (-not $directory.Exists) {throw "Directory $path does not exist"}
+            $size = 0
+            $directory.EnumerateFiles('*.*', 'AllDirectories') | ForEach-Object {$size += $_.Length}
+            return $size
+        }
+
     }
 
     #Encryption class
@@ -667,6 +1448,12 @@
             }
         }
 
+        # ToBase62String
+        #------------------------------------------------------------------------------------------------------------------
+        [string] ToBase62String() {
+            return [Base62]::Encode($this.HashedBytes)
+        }
+
         # ToBase64String
         #------------------------------------------------------------------------------------------------------------------
         [string] ToBase64String() {
@@ -694,6 +1481,7 @@
         #------------------------------------------------------------------------------------------------------------------
         [string] ToString() {
             switch ($this.BinaryOutputType) {
+                'Base62' {return $this.ToBase62String()}
                 'Base64' {return $this.ToBase64String()}
                 'Hex' {return $this.ToHexString()}
                 'Base85' {return $this.ToBase85String()}
@@ -704,10 +1492,100 @@
         }
     }
 
-    #LogContext class
+    #InstructionDefinition class
     #------------------------------------------------------------------------------------------------------------------
-    class LogContext {
-        # This class is used to hold context information for logging
+    class InstructionDefinition {
+        [System.IO.FileInfo]$File
+        [System.Xml.XmlNode]$Author
+        [System.Xml.XmlNode]$Name
+        [System.Xml.XmlNode]$ReadablePayload
+        [System.Xml.XmlNode]$Description
+        [System.Xml.XmlNode]$MinimumInstructionTtlMinutes
+        [System.Xml.XmlNode]$MaximumInstructionTtlMinutes
+        [System.Xml.XmlNode]$MinimumResponseTtlMinutes
+        [System.Xml.XmlNode]$MaximumResponseTtlMinutes
+        [System.Xml.XmlNode]$InstructionType
+        [System.Xml.XmlNode]$InstructionTtlMinutes
+        [System.Xml.XmlNode]$ResponseTtlMinutes
+        [System.Xml.XmlNode]$Version
+        [System.Xml.XmlNode]$xmlns
+        [System.Xml.XmlNode]$Payload
+        [System.Xml.XmlNode]$ResponseTemplateConfiguration
+        [System.Xml.XmlNode]$Comments
+        [System.Xml.XmlNode]$SchemaJson
+        [System.Xml.XmlNode]$ParameterJson
+        [System.Xml.XmlNode]$Resources
+        [System.Xml.XmlNode]$TaskGroups
+        [System.Xml.XmlNode]$Workflow
+        [System.Xml.XmlNode]$AggregationJson
+        [System.Xml.XmlNode]$Signature
+        [xml]$xml
+        [string]$OriginalHash
+    
+        # Constructors
+    
+        InstructionDefinition() {}
+    
+        # If passed a file, load the xml from the file
+        InstructionDefinition([System.IO.FileInfo]$file) {
+            $this.File = $file
+            $this.xml = [xml](Get-Content $file.FullName)
+            $this.Initialize()
+        }
+    
+        # If passed an XML, use it directly
+        InstructionDefinition([xml]$xml) {
+            $this.xml = $xml
+            $this.Initialize()
+        }
+    
+        # If passed a string of XML, convert it to an XML object
+        InstructionDefinition([string]$xml) {
+            $this.xml = [xml]$xml
+            $this.Initialize()
+        }
+    
+        [void] Initialize() {
+            # Create a namespace manager for better XPath queries
+            $nsManager = New-Object System.Xml.XmlNamespaceManager($this.xml.NameTable)
+            $nsManager.AddNamespace("ns", "http://schemas.1e.com/Tachyon/InstructionDefinition/1.0")
+            # Get the attributes from the InstructionDefinition node (these are all passed by ref so changes to the class properties will be reflected in the xml)
+            $node = $this.xml.SelectSingleNode("/ns:InstructionDefinition", $nsManager)
+            $this.Author = $node.Attributes["Author"]
+            $this.Name = $node.Attributes["Name"]
+            $this.ReadablePayload = $node.Attributes["ReadablePayload"]
+            $this.Description = $node.Attributes["Description"]
+            $this.MinimumInstructionTtlMinutes = $node.Attributes["MinimumInstructionTtlMinutes"]
+            $this.MaximumInstructionTtlMinutes = $node.Attributes["MaximumInstructionTtlMinutes"]
+            $this.MinimumResponseTtlMinutes = $node.Attributes["MinimumResponseTtlMinutes"]
+            $this.MaximumResponseTtlMinutes = $node.Attributes["MaximumResponseTtlMinutes"]
+            $this.InstructionType = $node.Attributes["InstructionType"]
+            $this.InstructionTtlMinutes = $node.Attributes["InstructionTtlMinutes"]
+            $this.ResponseTtlMinutes = $node.Attributes["ResponseTtlMinutes"]
+            $this.Version = $node.Attributes["Version"]
+            $this.xmlns = $node.Attributes["xmlns"]
+            # Get the other nodes
+            $this.Payload = $this.xml.SelectSingleNode("/ns:InstructionDefinition/ns:Payload", $nsManager)
+            $this.ResponseTemplateConfiguration = $this.xml.SelectSingleNode("/ns:InstructionDefinition/ns:ResponseTemplateConfiguration", $nsManager)
+            $this.Comments = $this.xml.SelectSingleNode("/ns:InstructionDefinition/ns:Comments", $nsManager)
+            $this.SchemaJson = $this.xml.SelectSingleNode("/ns:InstructionDefinition/ns:SchemaJson", $nsManager)
+            $this.ParameterJson = $this.xml.SelectSingleNode("/ns:InstructionDefinition/ns:ParameterJson", $nsManager)
+            $this.Resources = $this.xml.SelectSingleNode("/ns:InstructionDefinition/ns:Resources", $nsManager)
+            $this.TaskGroups = $this.xml.SelectSingleNode("/ns:InstructionDefinition/ns:TaskGroups", $nsManager)
+            $this.Workflow = $this.xml.SelectSingleNode("/ns:InstructionDefinition/ns:Workflow", $nsManager)
+            $this.AggregationJson = $this.xml.SelectSingleNode("/ns:InstructionDefinition/ns:AggregationJson", $nsManager)
+        }
+    
+        # Methods
+        [void] IncrementVersion () {
+            $this.Version
+        }
+    }    
+
+    #Context class
+    #------------------------------------------------------------------------------------------------------------------
+    class Context {
+        # This class is used to hold context information for logging or other audity uses
         [string]$ID
         [Device]$Device
         [OS]$OS
@@ -717,13 +1595,22 @@
 
         #Constructors
         #------------------------------------------------------------------------------------------------------------------
-        LogContext() {
+        Context() {
             $this.Device = [Device]::new()
             $this.OS = [OS]::new()
             $this.PowerShell = [PowerShell]::new()
             $this.Process = [Process]::new()
             $this.User = [User]::new()
-            $this.ID = ([Hash]::new($this.ToString(), 'MD5', 'Base85Alternate').ToString())
+            $this.ID = ([Hash]::new($this.ToString(), [Defaults]::ContextIDAlgorithm, [Defaults]::ContextIDFormat).ToString())
+        }
+
+        Context([HashAlgorithm]$Algorithm, [BinaryOutputType]$Format) {
+            $this.Device = [Device]::new()
+            $this.OS = [OS]::new()
+            $this.PowerShell = [PowerShell]::new()
+            $this.Process = [Process]::new()
+            $this.User = [User]::new()
+            $this.ID = ([Hash]::new($this.ToString(), $Algorithm, $Format).ToString())
         }
 
         #Methods
@@ -785,15 +1672,15 @@
         [int32]$LogMaxRollovers = 4 #in addition to the log file
         [System.IO.FileInfo[]]$RolloverLogs
         [int32]$TailLines = [Defaults]::LogTailLines
-        [ordered]$LoggingContext
         [System.DateTimeOffset]$InstantiationTime = [System.DateTimeOffset]::Now
         [bool]$EchoMessages = $false
+        [LogLevel]$LogLevel = [LogLevel]::Info
         [string]$FS = [Defaults]::FieldSeparator
         [string]$RS = [Defaults]::RecordSeparator
-        [HashAlgorithm]$ContextIDAlgorithm = [Defaults]::LogContextIDAlgorithm
-        [BinaryOutputType]$ContextIDFormat = [Defaults]::LogContextIDFormat
+        [HashAlgorithm]$ContextIDAlgorithm = [Defaults]::ContextIDAlgorithm
+        [BinaryOutputType]$ContextIDFormat = [Defaults]::ContextIDFormat
         [hashtable]$EchoColors = @{'Debug' = 'DarkGray';'Info' = 'Green';'Warn' = 'Yellow';'Error' = 'Red';'Fatal' = 'Magenta'}
-        [LogContext]$Context
+        [Context]$Context
         [Box]$Box = [Box]::new([BoxStyle]::DoubleNoSides)
 
         # Private Properties
@@ -806,7 +1693,7 @@
 
         # New log with default name/location
         Log() {
-            $this.LogFile = $this.NewFileInfo($null)            
+            $this.LogFile = $this.NewFileInfo($null)
             $this.Initialize()
         }
 
@@ -815,6 +1702,69 @@
             $this.LogFile = $this.NewFileInfo($logName)
             $this.Initialize()
         }
+
+        # New log with specified name/location and echo messages flag
+        Log([string]$logName, [bool]$echoMessages) {
+            $this.LogFile = $this.NewFileInfo($logName)
+            $this.EchoMessages = $echoMessages
+            $this.Initialize()
+        }
+
+        # New log with all options passed in
+        Log([System.IO.FileInfo]$LogFile,
+            [int32]$LogMaxBytes,
+            [int32]$LogMaxRollovers,
+            [System.IO.FileInfo[]]$RolloverLogs,
+            [int32]$TailLines,
+            [System.DateTimeOffset]$InstantiationTime,
+            [bool]$EchoMessages,
+            [LogLevel]$LogLevel,
+            [string]$FS,
+            [string]$RS,
+            [string]$ContextIDAlgorithm,
+            [string]$ContextIDFormat,
+            [hashtable]$EchoColors,
+            [Context]$Context,
+            [box]$Box 
+        ) {
+            $this.LogFile = $LogFile
+            $this.LogMaxBytes = $LogMaxBytes
+            $this.LogMaxRollovers = $LogMaxRollovers
+            $this.RolloverLogs = $RolloverLogs
+            $this.TailLines = $TailLines
+            $this.InstantiationTime = $InstantiationTime
+            $this.EchoMessages = $EchoMessages
+            $this.LogLevel = $LogLevel
+            $this.FS = $FS
+            $this.RS = $RS
+            $this.ContextIDAlgorithm = $ContextIDAlgorithm
+            $this.ContextIDFormat = $ContextIDFormat
+            $this.EchoColors = $EchoColors
+            $this.Context = $Context
+            $this.Box = $Box
+            $this.Initialize()
+        }
+
+        #New log with deserialized object passed in
+        Log([PSCustomObject]$DeserializedObject) {
+            $this.LogFile = [System.IO.FileInfo]::new($DeserializedObject.LogFile)
+            $this.LogMaxBytes = [int32]$DeserializedObject.LogMaxBytes
+            $this.LogMaxRollovers = [int32]$DeserializedObject.LogMaxRollovers
+            $this.RolloverLogs = [System.IO.FileInfo[]]$DeserializedObject.RolloverLogs
+            $this.TailLines = [int32]$DeserializedObject.TailLines
+            $this.InstantiationTime = [System.DateTimeOffset]::new($DeserializedObject.InstantiationTime.UtcTicks,0)
+            $this.EchoMessages = [bool]$DeserializedObject.EchoMessages
+            $this.LogLevel = [LogLevel]$DeserializedObject.LogLevel
+            $this.FS = [string]$DeserializedObject.FS
+            $this.RS = [string]$DeserializedObject.RS
+            $this.ContextIDAlgorithm = [string]$DeserializedObject.ContextIDAlgorithm
+            $this.ContextIDFormat = [string]$DeserializedObject.ContextIDFormat
+            $this.EchoColors = [hashtable]$DeserializedObject.EchoColors
+            $this.Context = [Context]::new() #always get new context, no matter what original had
+            $this.Box = [Box]::ReSerialize($DeserializedObject.Box)
+            #$this.Initialize()
+        }
+
         
         [void] Initialize() {
             # Make sure the log directory exists first, if not, force it to exist
@@ -854,12 +1804,14 @@
                 Sort-Object -Property Name -Descending
 
             # If the ContextID isn't already in the log, write the context to the log
-            $this.SyncLogContext()
+            $this.SyncContext()
+            $this.LogFile.Refresh() # Refresh the file info to make sure the FileInfo object is up to date
         }
         
 
         # Methods
         #==================================================================================================================
+
 
         # ClearContent
         #------------------------------------------------------------------------------------------------------------------
@@ -897,8 +1849,14 @@
 
         # Echo
         #------------------------------------------------------------------------------------------------------------------
+        hidden [void] Echo([System.Array] $Message, [string] $Level) {
+            $Message | ForEach-Object {
+                $this.Echo($_, $Level)
+            }
+        }
+
         hidden [void] Echo([string] $Message, [string] $Level) {
-            Write-Host $Message -ForegroundColor $this.EchoColors[$Level] -NoNewline
+            Write-Host "[$($this.LogFile.Name)]$($this.FS)$Message" -ForegroundColor $this.EchoColors[$Level] -NoNewline
         }
 
         # Error
@@ -1061,27 +2019,39 @@
                     $newLog = [System.IO.Path]::Combine($this.LogFile.Directory, "$($this.LogFile.BaseName).$($i)$($this.LogFile.Extension)")
                     if (Test-Path -Path $oldLog) {
                         Write-Verbose "Rolling over $oldLog --> $newLog"
-                        try {
-                            # try to rename the log file to the next highest rollover
-                            Rename-Item -Path $oldLog -NewName $newLog -Force -ErrorAction Stop
+                        $retryCount = 0
+                        $success = $false
+                        while ($retryCount -lt 5 -and -not $success) {
+                            try {
+                                # Try to rename the log file to the next highest rollover
+                                Rename-Item -Path $oldLog -NewName $newLog -Force -ErrorAction Stop
+                                $success = $true
+                            } catch {
+                                # Increment retry count and pause if not successful
+                                Start-Sleep -Seconds 1
+                                $retryCount++
+                            }
                         }
-                        catch {
+                    
+                        if (-not $success) {
                             # if we can't rename the log, try to copy its contents to the next highest rollover this is a last-ditch effort
                             # to preserve the log contents if we can't rename the file for some reason like when the file is in use by 
                             # another process or the folder it is in has delete protection but we can still write to the file. This is more 
                             # disk intensive than a rename, but it's better than losing the log contents.
                             $firstError = $_
                             try {
-                                Get-Content -Path $oldLog -Raw -Force -ErrorAction Stop | Set-Content -Path $newLog -Force -ErrorAction Stop -Encoding $this.encodingName -NoNewLine
-                            }
-                            catch {
+                                Get-Content -Path $oldLog -Raw -Force -ErrorAction Stop |
+                                    Set-Content -Path $newLog -Force -ErrorAction Stop -Encoding $this.encodingName -NoNewLine
+                            } catch {
                                 Write-Host $firstError
                                 Write-Host $_
                                 throw "Unable to rollover $oldLog --> $newLog"
                             }
                         }
                     }
+                    
                 }
+
 
                 # Rename the current log to .1.log
                 $newLog = [System.IO.Path]::Combine($this.LogFile.Directory, "$($this.LogFile.BaseName).1$($this.LogFile.Extension)")
@@ -1101,15 +2071,12 @@
                         throw "Unable to rollover $($this.LogFile.FullName) --> $newLog"
                     }
                     # clear the log file contents since we couldn't rename it
-                    for ($i = 0; $i -lt 3; $i++) {
-                        # try to clear the log file contents up to 3 times
+                    for ($i = 0; $i -lt 5; $i++) {
+                        # try to clear the log file contents up to 5 times
                         try {
                             Set-Content -Path $this.LogFile.FullName -Value '' -Force -Encoding $this.encodingName -ErrorAction Stop -NoNewLine
                         }
-                        catch {
-                            # if we can't clear the log file, write a warning
-                            Write-Error "Unable to clear log file $($this.LogFile.FullName)`n$_"
-                        }
+                        catch {}
                         $this.LogFile.Refresh()
                         if ($this.LogFile.Length -eq 0) {break}
                         Start-Sleep -Seconds 1
@@ -1120,7 +2087,8 @@
         # Size
         #------------------------------------------------------------------------------------------------------------------
         [int] Size() {
-            return (Get-Item -Path $this.LogFile.FullName).Length
+            $this.LogFile.Refresh()
+            return $this.LogFile.Length
         }
 
         # Tail
@@ -1161,22 +2129,20 @@
             return $this.Tail($this.TailLines)
         }
 
-        # SyncLogContext
+        # SyncContext
         #------------------------------------------------------------------------------------------------------------------
-        [void] SyncLogContext() {
+        [void] SyncContext() {
             # Get the current logging context into this object
-            $this.Context = [LogContext]::new()
-            # Write the context to the log if it's not already there
+            $this.Context = [Context]::new($this.ContextIDAlgorithm, $this.ContextIDFormat)
+            # Write the log info and context to the log if it's not already there
             if (-not (Select-String -Path $this.LogFile -Pattern ($this.Context.ID) -Quiet)) {
-                $sb = [System.Text.StringBuilder]::new()
-                
-                $logInfo = $this.ToString().AddIndent(4)
-                $sb.AppendLine("`n"+$this.Box.DrawBox(' LOG ',$logInfo, ' LOG '))
-
-                $contextInfo = "CONTEXT_ID: $($this.Context.ID)`n$($this.Context.ToString())".AddIndent(4)
-                $sb.Append($this.Box.DrawBox(' CONTEXT ',$contextInfo, ' CONTEXT '))
-                
-                $this.Write('Info',$sb.ToString())
+                $msgList = [System.Collections.Generic.List[String]]@()
+                $msgList.Add($this.Box.DrawTop(' CONTEXT '))
+                foreach ($line in $this.ToString().Split("`n")) {$msgList.Add($line.AddIndent(2))}
+                $msgList.Add("CONTEXT_ID: $($this.Context.ID)".AddIndent(2))
+                foreach ($line in $this.Context.ToString().Split("`n")) {$msgList.Add($line.AddIndent(2))}
+                $msgList.Add($this.Box.DrawBottom(' CONTEXT '))
+                $this.Write('Info', $msgList)
             }
         }
 
@@ -1189,10 +2155,11 @@
         # Write
         #------------------------------------------------------------------------------------------------------------------
         hidden [void] Write([LogLevel] $Level = 'Info', [string] $Message) {
+            $this.LogFile.Refresh() #refresh size info
+            if (($this.LogFile.Length ?? 0) -eq 0) {$this.Initialize()} #if the log file is empty, re-initialize it (this can happen if the log file is deleted externally)
             # Build the log entry string
             $msg = $this.NewEntryString($Level, $Message)
             #see if the message will make the log exceed the LogMaxBytes property
-            $this.LogFile.Refresh() #refresh size info
             $msgByteCount = [system.text.encoding]::utf8.GetByteCount($msg)
             if ($msgByteCount -ge $this.LogMaxBytes) {throw "This message alone exceeds the LogMaxBytes property and can't be written"}
             if (($msgByteCount + $this.LogFile.Length) -ge $this.LogMaxBytes) {
@@ -1210,6 +2177,7 @@
         # overload to write an array of messages
         [void] Write([LogLevel] $Level = 'Info',[System.Array] $Messages) {
             $this.LogFile.Refresh() # Refresh file info to get the latest file size
+            if ($this.LogFile.Length -eq 0) {$this.Initialize()} #if the log file is empty, re-initialize it (this can happen if the log file is deleted externally)
             $availableSpace = $this.LogMaxBytes - $this.LogFile.Length
         
             $msgList = New-Object System.Collections.Generic.List[string]
@@ -1252,8 +2220,32 @@
                 $batchedMessage = $msgList -join ''
                 Out-File -FilePath $this.LogFile.FullName -InputObject $batchedMessage -Append -Encoding $this.encodingName -ErrorAction Stop -Force -NoNewline
                 # Echo the batched messages so far if EchoMessages is true
-                if ($this.EchoMessages) {$this.Echo($batchedMessage)}
+                if ($this.EchoMessages) {$this.Echo($msgList, $level)}
             }
+        }
+
+        # WriteTopLine
+        #------------------------------------------------------------------------------------------------------------------
+        [void] WriteTopLine([LogLevel]$Level, [string] $Message) {
+            $this.Write($Level, $this.Box.DrawTop($Message))
+        }
+
+        # WriteMiddle
+        #------------------------------------------------------------------------------------------------------------------
+        [void] WriteMiddle([LogLevel]$Level, [string] $Message) {
+            $this.Write($Level, $this.Box.DrawMiddle($Message))
+        }
+
+        # WriteLine
+        #------------------------------------------------------------------------------------------------------------------
+        [void] WriteLine([LogLevel]$Level, [string] $Message) {
+            $this.Write($Level, $this.Box.DrawLine($Message))
+        }
+
+        # WriteBottomLine
+        #------------------------------------------------------------------------------------------------------------------
+        [void] WriteBottomLine([LogLevel]$Level, [string] $Message) {
+            $this.Write($Level, $this.Box.DrawBottom($Message))
         }
     }
 
@@ -1581,14 +2573,20 @@
 
     #IsHex
     #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.String -MemberType ScriptProperty -MemberName IsHex -Force -Value {
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName IsHex -Force -Value {
         ($this.Length % 2 -eq 0) -and ($this -match '^[0-9A-Fa-f]+$')
     }
 
     #LengthOfLongestLine
     #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.String -MemberType ScriptProperty -MemberName LengthOfLongestLine -Force -Value {
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName LengthOfLongestLine -Force -Value {
         ($this -split "\r?\n" | Measure-Object -Property Length -Maximum).Maximum
+    }
+
+    #ToBase62
+    #------------------------------------------------------------------------------------------------------------------
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName ToBase62 -Force -Value {
+        [Base62]::Encode([System.Text.Encoding]::UTF8.GetBytes($this ?? ''))
     }
     
 
@@ -1625,6 +2623,12 @@
         }
         $escapedString.ToString()
     }
+
+    #ToXmlEscapedString
+    #------------------------------------------------------------------------------------------------------------------
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName ToXmlEscapedString -Force -Value {
+        [System.Security.SecurityElement]::Escape($this)
+    }
     
 
     #ToHex
@@ -1659,21 +2663,21 @@
 
     #IsNullOrEmpty
     #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.String -MemberType ScriptProperty -MemberName IsNullOrEmpty -Force -Value {
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName IsNullOrEmpty -Force -Value {
         [string]::IsNullOrEmpty($this)
     }
     
 
     #IsNullOrWhiteSpace
     #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.String -MemberType ScriptProperty -MemberName IsNullOrWhiteSpace -Force -Value {
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName IsNullOrWhiteSpace -Force -Value {
         [string]::IsNullOrWhiteSpace($this)
     }
       
 
     #MD5
     #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.String -MemberType ScriptProperty -MemberName MD5 -Force -Value {
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName MD5 -Force -Value {
         param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
         [Hash]::new($this, 'MD5', $format)
     }
@@ -1739,7 +2743,7 @@
 
     #SHA1
     #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.String -MemberType ScriptProperty -MemberName SHA1 -Force -Value {
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName SHA1 -Force -Value {
         param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
         [Hash]::new($this, 'SHA1', $format)
     }
@@ -1747,7 +2751,7 @@
 
     #SHA256
     #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.String -MemberType ScriptProperty -MemberName SHA256 -Force -Value {
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName SHA256 -Force -Value {
         param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
         [Hash]::new($this, 'SHA256', $format)
     }
@@ -1755,7 +2759,7 @@
 
     #SHA384
     #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.String -MemberType ScriptProperty -MemberName SHA384 -Force -Value {
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName SHA384 -Force -Value {
         param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
         [Hash]::new($this, 'SHA384', $format)
     }
@@ -1763,7 +2767,7 @@
 
     #SHA512
     #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.String -MemberType ScriptProperty -MemberName SHA512 -Force -Value {
+    Update-TypeData -TypeName System.String -MemberType ScriptMethod -MemberName SHA512 -Force -Value {
         param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
         [Hash]::new($this, 'SHA512', $format)
     }
@@ -1775,6 +2779,12 @@
     #region
 
     # This section extends the System.Byte[] class with additional common properties and methods
+
+    #ToBase62
+    #------------------------------------------------------------------------------------------------------------------
+    Update-TypeData -TypeName System.Byte[] -MemberType ScriptMethod -MemberName ToBase62 -Force -Value {
+        [Base62]::Encode($this)
+    }
 
     #ToBase64
     #------------------------------------------------------------------------------------------------------------------
@@ -1792,7 +2802,7 @@
 
     #MD5
     #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.Byte[] -MemberType ScriptProperty -MemberName MD5 -Force -Value {
+    Update-TypeData -TypeName System.Byte[] -MemberType ScriptMethod -MemberName MD5 -Force -Value {
         param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
         [Hash]::new($this, 'MD5', $format)
     }
@@ -1800,7 +2810,7 @@
 
     #SHA1
     #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.Byte[] -MemberType ScriptProperty -MemberName SHA1 -Force -Value {
+    Update-TypeData -TypeName System.Byte[] -MemberType ScriptMethod -MemberName SHA1 -Force -Value {
         param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
         [Hash]::new($this, 'SHA1', $format)
     }
@@ -1808,7 +2818,7 @@
 
     #SHA256
     #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.Byte[] -MemberType ScriptProperty -MemberName SHA256 -Force -Value {
+    Update-TypeData -TypeName System.Byte[] -MemberType ScriptMethod -MemberName SHA256 -Force -Value {
         param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
         [Hash]::new($this, 'SHA256', $format)
     }
@@ -1816,7 +2826,7 @@
 
     #SHA384
     #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.Byte[] -MemberType ScriptProperty -MemberName SHA384 -Force -Value {
+    Update-TypeData -TypeName System.Byte[] -MemberType ScriptMethod -MemberName SHA384 -Force -Value {
         param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
         [Hash]::new($this, 'SHA384', $format)
     }
@@ -1824,7 +2834,7 @@
 
     #SHA512
     #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.Byte[] -MemberType ScriptProperty -MemberName SHA512 -Force -Value {
+    Update-TypeData -TypeName System.Byte[] -MemberType ScriptMethod -MemberName SHA512 -Force -Value {
         param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
         [Hash]::new($this, 'SHA512', $format)
     }
@@ -1839,32 +2849,39 @@
 
     # MD5
     #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.Collections.Hashtable -MemberType ScriptProperty -MemberName MD5 -Force -Value {
-        $this.ToString().MD5
+    Update-TypeData -TypeName System.Collections.Hashtable -MemberType ScriptMethod -MemberName MD5 -Force -Value {
+        $this.ToString().MD5()
+    }
+
+    # RemoveNullOrEmptyKeys
+    #------------------------------------------------------------------------------------------------------------------
+    Update-TypeData -TypeName System.Collections.Hashtable -MemberType ScriptMethod -MemberName RemoveNullOrEmptyKeys -Force -Value {
+        $keysToRemove = $this.GetEnumerator() | Where-Object {[string]::IsNullOrEmpty($_.Value) } | ForEach-Object { $_.Key }
+        $keysToRemove | ForEach-Object { $this.Remove($_) }
     }
 
     # SHA1
     #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.Collections.Hashtable -MemberType ScriptProperty -MemberName SHA1 -Force -Value {
-        $this.ToString().SHA1
+    Update-TypeData -TypeName System.Collections.Hashtable -MemberType ScriptMethod -MemberName SHA1 -Force -Value {
+        $this.ToString().SHA1()
     }
 
     # SHA256
     #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.Collections.Hashtable -MemberType ScriptProperty -MemberName SHA256 -Force -Value {
-        $this.ToString().SHA256
+    Update-TypeData -TypeName System.Collections.Hashtable -MemberType ScriptMethod -MemberName SHA256 -Force -Value {
+        $this.ToString().SHA256()
     }
 
     # SHA384
     #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.Collections.Hashtable -MemberType ScriptProperty -MemberName SHA384 -Force -Value {
-        $this.ToString().SHA384
+    Update-TypeData -TypeName System.Collections.Hashtable -MemberType ScriptMethod -MemberName SHA384 -Force -Value {
+        $this.ToString().SHA384()
     }
 
     # SHA512
     #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.Collections.Hashtable -MemberType ScriptProperty -MemberName SHA512 -Force -Value {
-        $this.ToString().SHA512
+    Update-TypeData -TypeName System.Collections.Hashtable -MemberType ScriptMethod -MemberName SHA512 -Force -Value {
+        $this.ToString().SHA512()
     }
     
     # ToJson
@@ -1909,32 +2926,39 @@
 
     # MD5
     #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.Collections.Specialized.OrderedDictionary -MemberType ScriptProperty -MemberName MD5 -Force -Value {
-        $this.ToString().MD5
+    Update-TypeData -TypeName System.Collections.Specialized.OrderedDictionary -MemberType ScriptMethod -MemberName MD5 -Force -Value {
+        $this.ToString().MD5()
     }
 
+    # RemoveNullOrEmptyKeys
+    #------------------------------------------------------------------------------------------------------------------
+    Update-TypeData -TypeName System.Collections.Specialized.OrderedDictionary -MemberType ScriptMethod -MemberName RemoveNullOrEmptyKeys -Force -Value {
+        $keysToRemove = $this.GetEnumerator() | Where-Object {[string]::IsNullOrEmpty($_.Value) } | ForEach-Object { $_.Key }
+        $keysToRemove | ForEach-Object { $this.Remove($_) }
+    }
+    
     # SHA1
     #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.Collections.Specialized.OrderedDictionary -MemberType ScriptProperty -MemberName SHA1 -Force -Value {
-        $this.ToString().SHA1
+    Update-TypeData -TypeName System.Collections.Specialized.OrderedDictionary -MemberType ScriptMethod -MemberName SHA1 -Force -Value {
+        $this.ToString().SHA1()
     }
 
     # SHA256
     #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.Collections.Specialized.OrderedDictionary -MemberType ScriptProperty -MemberName SHA256 -Force -Value {
-        $this.ToString().SHA256
+    Update-TypeData -TypeName System.Collections.Specialized.OrderedDictionary -MemberType ScriptMethod -MemberName SHA256 -Force -Value {
+        $this.ToString().SHA256()
     }
 
     # SHA384
     #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.Collections.Specialized.OrderedDictionary -MemberType ScriptProperty -MemberName SHA384 -Force -Value {
-        $this.ToString().SHA384
+    Update-TypeData -TypeName System.Collections.Specialized.OrderedDictionary -MemberType ScriptMethod -MemberName SHA384 -Force -Value {
+        $this.ToString().SHA384()
     }
 
     # SHA512
     #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.Collections.Specialized.OrderedDictionary -MemberType ScriptProperty -MemberName SHA512 -Force -Value {
-        $this.ToString().SHA512
+    Update-TypeData -TypeName System.Collections.Specialized.OrderedDictionary -MemberType ScriptMethod -MemberName SHA512 -Force -Value {
+        $this.ToString().SHA512()
     }
     
     # ToJson
@@ -1978,14 +3002,14 @@
 
     #MD5
     #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.Security.SecureString -MemberType ScriptProperty -MemberName MD5 -Force -Value {
+    Update-TypeData -TypeName System.Security.SecureString -MemberType ScriptMethod -MemberName MD5 -Force -Value {
         param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
         [Hash]::new($this, 'MD5', $format)
     }
 
     #SHA1
     #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.Security.SecureString -MemberType ScriptProperty -MemberName SHA1 -Force -Value {
+    Update-TypeData -TypeName System.Security.SecureString -MemberType ScriptMethod -MemberName SHA1 -Force -Value {
         param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
         [Hash]::new($this, 'SHA1', $format)
     }
@@ -1993,7 +3017,7 @@
 
     #SHA256
     #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.Security.SecureString -MemberType ScriptProperty -MemberName SHA256 -Force -Value {
+    Update-TypeData -TypeName System.Security.SecureString -MemberType ScriptMethod -MemberName SHA256 -Force -Value {
         param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
         [Hash]::new($this, 'SHA256', $format)
     }
@@ -2001,7 +3025,7 @@
 
     #SHA384
     #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.Security.SecureString -MemberType ScriptProperty -MemberName SHA384 -Force -Value {
+    Update-TypeData -TypeName System.Security.SecureString -MemberType ScriptMethod -MemberName SHA384 -Force -Value {
         param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
         [Hash]::new($this, 'SHA384', $format)
     }
@@ -2009,7 +3033,7 @@
 
     #SHA512
     #------------------------------------------------------------------------------------------------------------------
-    Update-TypeData -TypeName System.Security.SecureString -MemberType ScriptProperty -MemberName SHA512 -Force -Value {
+    Update-TypeData -TypeName System.Security.SecureString -MemberType ScriptMethod -MemberName SHA512 -Force -Value {
         param ([BinaryOutputType] $format = ([Defaults]::BinaryOutputType))
         [Hash]::new($this, 'SHA512', $format)
     }
@@ -2024,6 +3048,42 @@
 
     #endregion    
 #╚════════════════════════════════════════════════════════════════════════════════════════════════ EXTEND PSCredential ═╝
+
+#╔ EXTEND Version ══════════════════════════════════════════════════════════════════════════════════════════════════════╗
+    #region                                                                                                            
+    # This section extends the System.Version class with additional common properties and methods
+
+    # From DateTime
+    #------------------------------------------------------------------------------------------------------------------
+    Update-TypeData -TypeName System.Version -MemberType ScriptMethod -MemberName FromDateTime -Force -Value {
+        param ([datetime] $dateTime = (Get-Date -AsUTC))
+        # format: A.B.C.D where:
+        # A = YYYYMM
+        # B = DDHH
+        # C = MMSS
+        # D = (always) 1
+        # A - Year and Month (6 digits)
+        $yearMonthSegment = ($dateTime.Year.ToString() + $dateTime.Month.ToString("00"))
+        # B - Day and Hour (4 digits)
+        $dayHourSegment = ($dateTime.Day.ToString("00") + $dateTime.Hour.ToString("00"))
+        # C - Minute and Second (4 digits)
+        $minuteSecondSegment = ($dateTime.Minute.ToString("00") + $dateTime.Second.ToString("00"))
+        # D - Default to 1
+        $incrementingSegment = 1
+        [Version]::new("$yearMonthSegment.$dayHourSegment.$minuteSecondSegment.$incrementingSegment")
+    }
+
+    # Increment
+    #------------------------------------------------------------------------------------------------------------------
+    Update-TypeData -TypeName System.Version -MemberType ScriptMethod -MemberName Increment -Force -Value {
+        param([int] $IncrementBy = 1)
+        $segments = $this.ToString().Split('.')
+        $segments[-1] = [int]$segments[-1] + $IncrementBy
+        [Version]::new($segments -join '.')
+    }
+
+    #endregion                                                                                                         
+#╚══════════════════════════════════════════════════════════════════════════════════════════════════════ EXTEND Version ╝
 
 #╔ Functions ═══════════════════════════════════════════════════════════════════════════════════════════════════════════╗
     #region
@@ -2055,7 +3115,33 @@
         $log.LogMaxRollovers = $MaxRollovers
         $log.EchoMessages = $EchoMessages
         return $log
+    }    
+
+    # Test-Connected
+    #------------------------------------------------------------------------------------------------------------------
+    function Test-Connected {
+        [CmdletBinding()]
+        [OutputType([bool])]
+        param (
+            [string]$1eServer
+        )
+        #try to run something benign that expects a connection to the 1E server
+        try {
+            [void](Get-1ESystemStatistics -ErrorAction Stop -WarningAction Stop);
+            return $true
+        }
+        catch {
+            return $false
+        }
+
     }
 
     #endregion                                                                                                             
 #╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════ Functions ╝
+
+#╔═ Script ═════════════════════════════════════════════════════════════════════════════════════════════════════════════╗
+    #region
+
+
+    #endregion
+#╚═════════════════════════════════════════════════════════════════════════════════════════════════════════════ Script ═╝

@@ -9,7 +9,7 @@
 @{
 
     # Script module or binary module file associated with this manifest.
-    RootModule = 'eClasses.psm1'
+    RootModule = 'Cs1eToolkit.psm1'
     
     # Version number of this module.
     ModuleVersion = '0.0.2'
@@ -126,7 +126,7 @@
     HelpInfoURI = 'https://github.com/dex-code-one/Cs1eToolkit/tree/main/en-US'
     
     # Default prefix for commands exported from this module. Override the default prefix using Import-Module -Prefix.
-    DefaultCommandPrefix = '1e'
+    DefaultCommandPrefix = 'Cs'
     
     }
     
